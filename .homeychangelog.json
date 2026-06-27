@@ -37,5 +37,11 @@
   },
   "1.1.14": {
     "en": "Fixed: app crash on startup when Homey location is configured — error saving coordinates to device settings was not handled correctly."
+  },
+  "1.1.15": {
+    "en": "  \"Multilingual capability titles that follow the Homey app language. Re-pairing required to apply the new titles.\""
+  },
+  "1.1.16": {
+    "en": "  \"Multilingual capability titles that follow the Homey app language. Re-pairing required to apply the new titles.\""
   }
 }
