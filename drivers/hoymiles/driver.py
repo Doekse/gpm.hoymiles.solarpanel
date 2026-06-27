@@ -14,6 +14,99 @@ _LOGGER = logging.getLogger(__name__)
 _IS_ENCRYPTED_BIT = IS_ENCRYPTED_BIT_INDEX
 _DTU_PORT = 10081
 
+_CAPABILITY_TITLES: dict[str, dict[str, str]] = {
+    "Current Power": {
+        "en": "Current Power", "nl": "Huidig Vermogen", "de": "Aktuelle Leistung",
+        "fr": "Puissance Actuelle", "it": "Potenza Attuale", "sv": "Aktuell Effekt",
+        "no": "Aktuell Effekt", "es": "Potencia Actual", "da": "Aktuel Effekt", "pl": "Aktualna Moc",
+    },
+    "Daily Energy": {
+        "en": "Daily Energy", "nl": "Dagelijkse Energie", "de": "Tagesenergie",
+        "fr": "Énergie Journalière", "it": "Energia Giornaliera", "sv": "Daglig Energi",
+        "no": "Daglig Energi", "es": "Energía Diaria", "da": "Daglig Energi", "pl": "Dzienna Energia",
+    },
+    "Lifetime Energy": {
+        "en": "Lifetime Energy", "nl": "Totale Energie", "de": "Gesamtenergie",
+        "fr": "Énergie Totale", "it": "Energia Totale", "sv": "Total Energi",
+        "no": "Total Energi", "es": "Energía Total", "da": "Total Energi", "pl": "Łączna Energia",
+    },
+    "Inverter Alarm": {
+        "en": "Inverter Alarm", "nl": "Omvormer Alarm", "de": "Wechselrichter-Alarm",
+        "fr": "Alarme Onduleur", "it": "Allarme Inverter", "sv": "Växelriktarlarm",
+        "no": "Vekselretter-Alarm", "es": "Alarma Inversor", "da": "Vekselretter-Alarm",
+        "pl": "Alarm Falownika",
+    },
+    "Battery State of Charge": {
+        "en": "Battery State of Charge", "nl": "Accustand", "de": "Batterieladezustand",
+        "fr": "État de Charge de la Batterie", "it": "Stato di Carica della Batteria",
+        "sv": "Batteriladdningsstatus", "no": "Batteriladestatus",
+        "es": "Estado de Carga de la Batería", "da": "Batteriopladningsstatus",
+        "pl": "Stan Naładowania Baterii",
+    },
+    "Grid Frequency": {
+        "en": "Grid Frequency", "nl": "Netfrequentie", "de": "Netzfrequenz",
+        "fr": "Fréquence du Réseau", "it": "Frequenza di Rete", "sv": "Nätfrekvens",
+        "no": "Nettfrekvens", "es": "Frecuencia de Red", "da": "Netfrekvens",
+        "pl": "Częstotliwość Sieci",
+    },
+    "Inverter Temperature": {
+        "en": "Inverter Temperature", "nl": "Omvormer Temperatuur", "de": "Wechselrichter-Temperatur",
+        "fr": "Température de l'Onduleur", "it": "Temperatura Inverter",
+        "sv": "Växelriktartemperatur", "no": "Vekselretter-Temperatur",
+        "es": "Temperatura del Inversor", "da": "Vekselretter-Temperatur",
+        "pl": "Temperatura Falownika",
+    },
+    "Voltage Phase": {
+        "en": "Voltage Phase {label}", "nl": "Spanning Fase {label}",
+        "de": "Spannung Phase {label}", "fr": "Tension Phase {label}",
+        "it": "Tensione Fase {label}", "sv": "Spänning Fas {label}",
+        "no": "Spenning Fase {label}", "es": "Tensión Fase {label}",
+        "da": "Spænding Fase {label}", "pl": "Napięcie Faza {label}",
+    },
+    "Current Phase": {
+        "en": "Current Phase {label}", "nl": "Stroom Fase {label}",
+        "de": "Strom Phase {label}", "fr": "Courant Phase {label}",
+        "it": "Corrente Fase {label}", "sv": "Ström Fas {label}",
+        "no": "Strøm Fase {label}", "es": "Corriente Fase {label}",
+        "da": "Strøm Fase {label}", "pl": "Prąd Faza {label}",
+    },
+    "AC Voltage": {
+        "en": "AC Voltage", "nl": "AC-Spanning", "de": "AC-Spannung",
+        "fr": "Tension AC", "it": "Tensione CA", "sv": "AC-Spänning",
+        "no": "AC-Spenning", "es": "Tensión CA", "da": "AC-Spænding", "pl": "Napięcie AC",
+    },
+    "AC Current": {
+        "en": "AC Current", "nl": "AC-Stroom", "de": "AC-Strom",
+        "fr": "Courant AC", "it": "Corrente CA", "sv": "AC-Ström",
+        "no": "AC-Strøm", "es": "Corriente CA", "da": "AC-Strøm", "pl": "Prąd AC",
+    },
+    "Panel Power": {
+        "en": "Panel {i} Power", "nl": "Paneel {i} Vermogen", "de": "Panel {i} Leistung",
+        "fr": "Panneau {i} Puissance", "it": "Pannello {i} Potenza",
+        "sv": "Panel {i} Effekt", "no": "Panel {i} Effekt",
+        "es": "Panel {i} Potencia", "da": "Panel {i} Effekt", "pl": "Panel {i} Moc",
+    },
+    "Panel Voltage": {
+        "en": "Panel {i} Voltage", "nl": "Paneel {i} Spanning", "de": "Panel {i} Spannung",
+        "fr": "Panneau {i} Tension", "it": "Pannello {i} Tensione",
+        "sv": "Panel {i} Spänning", "no": "Panel {i} Spenning",
+        "es": "Panel {i} Tensión", "da": "Panel {i} Spænding", "pl": "Panel {i} Napięcie",
+    },
+    "Panel Current": {
+        "en": "Panel {i} Current", "nl": "Paneel {i} Stroom", "de": "Panel {i} Strom",
+        "fr": "Panneau {i} Courant", "it": "Pannello {i} Corrente",
+        "sv": "Panel {i} Ström", "no": "Panel {i} Strøm",
+        "es": "Panel {i} Corriente", "da": "Panel {i} Strøm", "pl": "Panel {i} Prąd",
+    },
+}
+
+
+def capability_title(key: str, **values) -> dict[str, str]:
+    title_map = dict(_CAPABILITY_TITLES.get(key, {"en": key}))
+    if not values:
+        return title_map
+    return {lang: title.format(**values) for lang, title in title_map.items()}
+
 
 def _is_encrypted(dfs: int) -> bool:
     return bool((dfs >> _IS_ENCRYPTED_BIT) & 1)
@@ -86,103 +179,62 @@ def _build_capabilities(panel_count: int, three_phase: bool, is_hybrid: bool) ->
 def _build_capabilities_options(panel_count: int, three_phase: bool, is_hybrid: bool) -> dict:
     opts = {
         "measure_power": {
-            "title": {"en": "Current Power", "nl": "Huidig Vermogen", "de": "Aktuelle Leistung",
-                      "fr": "Puissance Actuelle", "it": "Potenza Attuale", "sv": "Aktuell Effekt",
-                      "no": "Aktuell Effekt", "es": "Potencia Actual", "da": "Aktuel Effekt", "pl": "Aktualna Moc"},
+            "title": capability_title("Current Power"),
             "units": {"en": "W"},
         },
         "meter_power.today": {
-            "title": {"en": "Daily Energy", "nl": "Dagelijkse Energie", "de": "Tagesenergie",
-                      "fr": "Énergie Journalière", "it": "Energia Giornaliera", "sv": "Daglig Energi",
-                      "no": "Daglig Energi", "es": "Energía Diaria", "da": "Daglig Energi", "pl": "Dzienna Energia"},
+            "title": capability_title("Daily Energy"),
             "units": {"en": "kWh"},
         },
         "meter_power": {
-            "title": {"en": "Lifetime Energy", "nl": "Totale Energie", "de": "Gesamtenergie",
-                      "fr": "Énergie Totale", "it": "Energia Totale", "sv": "Total Energi",
-                      "no": "Total Energi", "es": "Energía Total", "da": "Total Energi", "pl": "Łączna Energia"},
+            "title": capability_title("Lifetime Energy"),
             "units": {"en": "kWh"},
         },
         "alarm_generic": {
-            "title": {"en": "Inverter Alarm", "nl": "Omvormer Alarm", "de": "Wechselrichter-Alarm",
-                      "fr": "Alarme Onduleur", "it": "Allarme Inverter", "sv": "Växelriktarlarm",
-                      "no": "Vekselretter-Alarm", "es": "Alarma Inversor", "da": "Vekselretter-Alarm",
-                      "pl": "Alarm Falownika"},
+            "title": capability_title("Inverter Alarm"),
         },
     }
 
     if is_hybrid:
         opts["measure_battery"] = {
-            "title": {"en": "Battery State of Charge", "nl": "Accustand", "de": "Batterieladezustand",
-                      "fr": "État de Charge de la Batterie", "it": "Stato di Carica della Batteria",
-                      "sv": "Batteriladdningsstatus", "no": "Batteriladestatus",
-                      "es": "Estado de Carga de la Batería", "da": "Batteriopladningsstatus",
-                      "pl": "Stan Naładowania Baterii"},
+            "title": capability_title("Battery State of Charge"),
         }
         return opts
 
     opts["measure_frequency"] = {
-        "title": {"en": "Grid Frequency", "nl": "Netfrequentie", "de": "Netzfrequenz",
-                  "fr": "Fréquence du Réseau", "it": "Frequenza di Rete", "sv": "Nätfrekvens",
-                  "no": "Nettfrekvens", "es": "Frecuencia de Red", "da": "Netfrekvens",
-                  "pl": "Częstotliwość Sieci"},
+        "title": capability_title("Grid Frequency"),
     }
     opts["measure_temperature"] = {
-        "title": {"en": "Inverter Temperature", "nl": "Omvormer Temperatuur", "de": "Wechselrichter-Temperatur",
-                  "fr": "Température de l'Onduleur", "it": "Temperatura Inverter",
-                  "sv": "Växelriktartemperatur", "no": "Vekselretter-Temperatur",
-                  "es": "Temperatura del Inversor", "da": "Vekselretter-Temperatur",
-                  "pl": "Temperatura Falownika"},
+        "title": capability_title("Inverter Temperature"),
     }
 
     if three_phase:
         for ph, label in (("a", "A"), ("b", "B"), ("c", "C")):
             opts[f"measure_voltage.phase_{ph}"] = {
-                "title": {"en": f"Voltage Phase {label}", "nl": f"Spanning Fase {label}",
-                          "de": f"Spannung Phase {label}", "fr": f"Tension Phase {label}",
-                          "it": f"Tensione Fase {label}", "sv": f"Spänning Fas {label}",
-                          "no": f"Spenning Fase {label}", "es": f"Tensión Fase {label}",
-                          "da": f"Spænding Fase {label}", "pl": f"Napięcie Faza {label}"},
+                "title": capability_title("Voltage Phase", label=label),
             }
             opts[f"measure_current.phase_{ph}"] = {
-                "title": {"en": f"Current Phase {label}", "nl": f"Stroom Fase {label}",
-                          "de": f"Strom Phase {label}", "fr": f"Courant Phase {label}",
-                          "it": f"Corrente Fase {label}", "sv": f"Ström Fas {label}",
-                          "no": f"Strøm Fase {label}", "es": f"Corriente Fase {label}",
-                          "da": f"Strøm Fase {label}", "pl": f"Prąd Faza {label}"},
+                "title": capability_title("Current Phase", label=label),
             }
     else:
         opts["measure_voltage"] = {
-            "title": {"en": "AC Voltage", "nl": "AC-Spanning", "de": "AC-Spannung",
-                      "fr": "Tension AC", "it": "Tensione CA", "sv": "AC-Spänning",
-                      "no": "AC-Spenning", "es": "Tensión CA", "da": "AC-Spænding", "pl": "Napięcie AC"},
+            "title": capability_title("AC Voltage"),
         }
         opts["measure_current"] = {
-            "title": {"en": "AC Current", "nl": "AC-Stroom", "de": "AC-Strom",
-                      "fr": "Courant AC", "it": "Corrente CA", "sv": "AC-Ström",
-                      "no": "AC-Strøm", "es": "Corriente CA", "da": "AC-Strøm", "pl": "Prąd AC"},
+            "title": capability_title("AC Current"),
         }
 
     for i in range(1, panel_count + 1):
         opts[f"measure_power.pv{i}"] = {
-            "title": {"en": f"Panel {i} Power", "nl": f"Paneel {i} Vermogen", "de": f"Panel {i} Leistung",
-                      "fr": f"Panneau {i} Puissance", "it": f"Pannello {i} Potenza",
-                      "sv": f"Panel {i} Effekt", "no": f"Panel {i} Effekt",
-                      "es": f"Panel {i} Potencia", "da": f"Panel {i} Effekt", "pl": f"Panel {i} Moc"},
+            "title": capability_title("Panel Power", i=i),
             "units": {"en": "W"},
         }
         opts[f"measure_voltage.pv{i}"] = {
-            "title": {"en": f"Panel {i} Voltage", "nl": f"Paneel {i} Spanning", "de": f"Panel {i} Spannung",
-                      "fr": f"Panneau {i} Tension", "it": f"Pannello {i} Tensione",
-                      "sv": f"Panel {i} Spänning", "no": f"Panel {i} Spenning",
-                      "es": f"Panel {i} Tensión", "da": f"Panel {i} Spænding", "pl": f"Panel {i} Napięcie"},
+            "title": capability_title("Panel Voltage", i=i),
             "units": {"en": "V"},
         }
         opts[f"measure_current.pv{i}"] = {
-            "title": {"en": f"Panel {i} Current", "nl": f"Paneel {i} Stroom", "de": f"Panel {i} Strom",
-                      "fr": f"Panneau {i} Courant", "it": f"Pannello {i} Corrente",
-                      "sv": f"Panel {i} Ström", "no": f"Panel {i} Strøm",
-                      "es": f"Panel {i} Corriente", "da": f"Panel {i} Strøm", "pl": f"Panel {i} Prąd"},
+            "title": capability_title("Panel Current", i=i),
             "units": {"en": "A"},
         }
 
