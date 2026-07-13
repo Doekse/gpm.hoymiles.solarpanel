@@ -43,5 +43,8 @@
   },
   "1.1.16": {
     "en": "  \"Multilingual capability titles that follow the Homey app language. Re-pairing required to apply the new titles.\""
+  },
+  "1.1.17": {
+    "en": "Improved DTU recovery after overnight offline periods."
   }
 }

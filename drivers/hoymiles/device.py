@@ -18,6 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 _INFORMATIONAL_WARN_MAX = 255
 _BACKOFF_NIGHT = 30 * 60   # seconds
 _BACKOFF_DAY   =  5 * 60   # seconds
+_NO_DATA_REBUILD_AFTER = 20 * 60  # seconds
 
 
 class HoymilesDevice(Device):
@@ -27,6 +28,7 @@ class HoymilesDevice(Device):
     _consecutive_errors: int = 0
     _ERROR_THRESHOLD: int = 5
     _backoff_until: float = 0.0
+    _first_no_data_at: float | None = None
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
     # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -132,6 +134,7 @@ class HoymilesDevice(Device):
     async def _poll_standard(self) -> None:
         sun_times = self._get_sunrise_sunset()
         if sun_times is not None and self._is_night_time_from(sun_times):
+            self._first_no_data_at = None
             await self._apply_night_backoff(sun_times)
             return
 
@@ -140,8 +143,10 @@ class HoymilesDevice(Device):
         except Exception as e:
             sun_times = self._get_sunrise_sunset()
             if sun_times is not None and self._is_night_time_from(sun_times):
+                self._first_no_data_at = None
                 await self._apply_night_backoff(sun_times, e)
             else:
+                self._first_no_data_at = None
                 self._consecutive_errors += 1
                 self.log(f"Poll error ({self._consecutive_errors}): {e}")
                 if self._consecutive_errors >= self._ERROR_THRESHOLD:
@@ -149,9 +154,21 @@ class HoymilesDevice(Device):
             return
 
         if not data:
-            self.log("Poll: no data — inverter sleeping, keeping last values")
+            now = time.monotonic()
+            if self._first_no_data_at is None:
+                self._first_no_data_at = now
+            no_data_for = now - self._first_no_data_at
+            self.log(
+                f"Poll: no data — inverter sleeping, keeping last values "
+                f"({no_data_for / 60:.0f} min)"
+            )
+            if no_data_for >= _NO_DATA_REBUILD_AFTER:
+                self.log("Poll: no data persisted — rebuilding DTU connection")
+                await self._build_dtu()
+                self._first_no_data_at = None
             return
 
+        self._first_no_data_at = None
         self._consecutive_errors = 0
         await self.set_available()
         panel_count = int(self.get_setting("panel_count") or 0)

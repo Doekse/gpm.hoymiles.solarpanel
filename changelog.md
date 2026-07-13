@@ -1,3 +1,7 @@
+v1.1.17
+
+Test: rebuilds the local DTU connection after prolonged daytime "no data" responses, to improve recovery when a DTU comes back online after the night.
+
 v1.1.14
 
 Fixed: app crash on startup when Homey location is configured — error saving coordinates to device settings was not handled correctly.
