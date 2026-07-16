@@ -29,6 +29,12 @@ class HoymilesDevice(Device):
     _ERROR_THRESHOLD: int = 5
     _backoff_until: float = 0.0
     _first_no_data_at: float | None = None
+    _last_poll_ok_at: float | None = None
+    _last_poll_ok_power: float | None = None
+    _last_poll_ok_daily: float | None = None
+    _last_poll_ok_date = None
+    _last_poll_ok_warning: int | None = None
+    _dtu_rebuilds: int = 0
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
     # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -53,7 +59,7 @@ class HoymilesDevice(Device):
 
     # ── DTU instance ──────────────────────────────────────────────────────────
 
-    async def _build_dtu(self) -> None:
+    def _dtu_config(self) -> tuple[str, bool, dict]:
         ip           = self.get_setting("ip") or ""
         is_encrypted = bool(self.get_setting("is_encrypted"))
         enc_rand_hex = self.get_setting("enc_rand") or ""
@@ -63,8 +69,46 @@ class HoymilesDevice(Device):
             kwargs["is_encrypted"] = True
             kwargs["enc_rand"]     = bytes.fromhex(enc_rand_hex)
 
+        return ip, is_encrypted, kwargs
+
+    async def _build_dtu(self) -> None:
+        ip, is_encrypted, kwargs = self._dtu_config()
         self._dtu = DTU(ip, **kwargs)
-        self.log(f"DTU built — ip:{ip} encrypted:{is_encrypted}")
+        self.log(
+            f"DTU built — ip:{ip} encrypted:{is_encrypted} "
+            f"enc_rand:{'yes' if kwargs.get('enc_rand') else 'no'}"
+        )
+
+    async def _probe_dtu_info(self, reason: str) -> None:
+        """Log a fresh DTU app_info probe for diagnostics."""
+        ip, is_encrypted, kwargs = self._dtu_config()
+        try:
+            probe = DTU(ip, **kwargs)
+            app_info = await asyncio.wait_for(
+                probe.async_app_information_data(), timeout=10
+            )
+            if not app_info:
+                self.log(f"DTU probe ({reason}): no app_info")
+                return
+
+            dtu_info = app_info.dtu_info
+            sw = ""
+            signal = None
+            dfs = None
+            if dtu_info:
+                sw = dtu_info.wifi_version or dtu_info.dtu_sw_version or ""
+                signal = dtu_info.signal_strength
+                dfs = dtu_info.dfs
+
+            self.log(
+                f"DTU probe ({reason}): ok ip={ip} encrypted={is_encrypted} "
+                f"sn={app_info.dtu_serial_number or '—'} "
+                f"panels={app_info.pv_number or 0} "
+                f"sw={sw or '—'} signal={signal if signal is not None else '—'} "
+                f"dfs={dfs if dfs is not None else '—'}"
+            )
+        except Exception as e:
+            self.log(f"DTU probe ({reason}) failed: {type(e).__name__}: {e}")
 
     # ── One-time startup info ─────────────────────────────────────────────────
 
@@ -158,12 +202,25 @@ class HoymilesDevice(Device):
             if self._first_no_data_at is None:
                 self._first_no_data_at = now
             no_data_for = now - self._first_no_data_at
+            last_ok = (
+                "never" if self._last_poll_ok_at is None
+                else f"{(now - self._last_poll_ok_at) / 60:.0f} min ago"
+            )
             self.log(
                 f"Poll: no data — inverter sleeping, keeping last values "
-                f"({no_data_for / 60:.0f} min)"
+                f"({no_data_for / 60:.0f} min, last_ok={last_ok}, "
+                f"last_warn={self._last_poll_ok_warning}, "
+                f"rebuilds={self._dtu_rebuilds})"
             )
             if no_data_for >= _NO_DATA_REBUILD_AFTER:
-                self.log("Poll: no data persisted — rebuilding DTU connection")
+                self.log(
+                    f"Poll: no data persisted — rebuilding DTU connection "
+                    f"(last_power={self._last_poll_ok_power}W "
+                    f"last_daily={self._last_poll_ok_daily}kWh "
+                    f"last_warn={self._last_poll_ok_warning})"
+                )
+                await self._probe_dtu_info("before rebuild")
+                self._dtu_rebuilds += 1
                 await self._build_dtu()
                 self._first_no_data_at = None
             return
@@ -183,7 +240,27 @@ class HoymilesDevice(Device):
         pv_w      = sum((pv.power         or 0) for pv in pv_list) / 10
         pv_today  = sum((pv.energy_daily  or 0) for pv in pv_list) / 1000
         power_w   = dtu_w     if dtu_w     > 0 else pv_w
-        today_kwh = dtu_today if dtu_today > 0 else pv_today
+        today_raw = dtu_today if dtu_today > 0 else pv_today
+        today_date = datetime.now(timezone.utc).date()
+        today_kwh = today_raw
+        if (
+            today_raw == 0
+            and power_w <= 5
+            and self._last_poll_ok_daily
+            and self._last_poll_ok_daily > 0
+            and self._last_poll_ok_date == today_date
+        ):
+            today_kwh = self._last_poll_ok_daily
+            self.log(
+                f"Daily energy reported zero at low power — keeping last value "
+                f"{today_kwh:.2f}kWh for today"
+            )
+        warn_raw = self._warning_number(data)
+        self._last_poll_ok_at = time.monotonic()
+        self._last_poll_ok_power = round(power_w, 1)
+        self._last_poll_ok_daily = round(today_kwh, 3)
+        self._last_poll_ok_date = today_date
+        self._last_poll_ok_warning = warn_raw
         await self._set("measure_power",     power_w)
         await self._set("meter_power.today", today_kwh)
 
@@ -206,7 +283,18 @@ class HoymilesDevice(Device):
         # ── Flow triggers ──────────────────────────────────────────────────────
         await self._fire_flow_triggers(power_w, today_kwh)
 
-        self.log(f"poll ok | solar={power_w:.0f}W daily={today_kwh:.2f}kWh")
+        self.log(
+            f"poll ok | solar={power_w:.0f}W daily={today_kwh:.2f}kWh "
+            f"raw_daily={today_raw:.2f}kWh warn={warn_raw} "
+            f"failures={self._consecutive_errors}"
+        )
+
+    def _warning_number(self, data) -> int:
+        if data.tgs_data:
+            return (data.tgs_data[0].warning_number or 0)
+        if data.sgs_data:
+            return (data.sgs_data[0].warning_number or 0)
+        return 0
 
     async def _poll_single_phase(self, data) -> None:
         sgs = (data.sgs_data or [None])[0]
@@ -382,7 +470,10 @@ class HoymilesDevice(Device):
         suffix = f" | {reason}" if reason else ""
         self.log(
             f"poll: night — backing off 30 min | "
-            f"sunrise≈{sunrise:.2f}h sunset≈{sunset:.2f}h (UTC){suffix}"
+            f"sunrise≈{sunrise:.2f}h sunset≈{sunset:.2f}h (UTC) "
+            f"last_power={self._last_poll_ok_power}W "
+            f"last_daily={self._last_poll_ok_daily}kWh "
+            f"last_warn={self._last_poll_ok_warning}{suffix}"
         )
 
     # ── Apply zeros ───────────────────────────────────────────────────────────

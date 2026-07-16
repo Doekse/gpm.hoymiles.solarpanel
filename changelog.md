@@ -1,3 +1,8 @@
+v1.1.18
+
+Fixed: Daily Energy no longer drops to 0 at the end of the day when the DTU reports a temporary zero value at low power.
+Improved: Diagnostics now include raw daily energy, warning numbers, and DTU-Pro-S recovery context.
+
 v1.1.17
 
 Test: rebuilds the local DTU connection after prolonged daytime "no data" responses, to improve recovery when a DTU comes back online after the night.
