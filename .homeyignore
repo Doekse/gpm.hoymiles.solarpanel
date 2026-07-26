@@ -2,3 +2,4 @@ test_dtu.py
 other/*
 CLAUDE.md
 AGENTS.md
+*.md

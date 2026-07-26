@@ -49,5 +49,8 @@
   },
   "1.1.18": {
     "en": "Preserves the last valid daily energy value when a DTU reports zero at the end of the day, and improves diagnostics for DTU-Pro-S no-data recovery."
+  },
+  "1.1.19": {
+    "en": "Improved recovery for encrypted DTU-Pro-S / DTU WLite-S devices after overnight offline periods."
   }
 }

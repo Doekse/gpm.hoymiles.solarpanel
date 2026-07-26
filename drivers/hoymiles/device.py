@@ -110,6 +110,69 @@ class HoymilesDevice(Device):
         except Exception as e:
             self.log(f"DTU probe ({reason}) failed: {type(e).__name__}: {e}")
 
+    async def _refresh_enc_rand_from_app_info(self, reason: str) -> bool:
+        """Refresh encrypted DTU metadata from app_info.
+
+        DTU-Pro-S / WLite-S devices expose enc_rand through app_information_data().
+        Re-pairing works because it reads this metadata before polling real data.
+        During recovery, mirror that behaviour so an installed device can repair
+        stale encryption settings without removing/re-adding it.
+        """
+        ip, is_encrypted, kwargs = self._dtu_config()
+        attempts = [("configured", kwargs)]
+        if is_encrypted:
+            attempts.append(("plain", {"timeout": kwargs.get("timeout", 20)}))
+
+        for label, attempt_kwargs in attempts:
+            try:
+                probe = DTU(ip, **attempt_kwargs)
+                app_info = await asyncio.wait_for(
+                    probe.async_app_information_data(), timeout=10
+                )
+            except Exception as e:
+                self.log(
+                    f"enc_rand refresh ({reason}, {label}) failed: "
+                    f"{type(e).__name__}: {e}"
+                )
+                continue
+
+            if not app_info or not app_info.dtu_info:
+                self.log(f"enc_rand refresh ({reason}, {label}): no app_info")
+                continue
+
+            di = app_info.dtu_info
+            updates = {
+                "signal_strength": str(di.signal_strength or ""),
+                "sw_version":      str(di.wifi_version   or di.dtu_sw_version or ""),
+                "hw_version":      str(di.dtu_hw_version or ""),
+            }
+
+            new_enc_rand = di.enc_rand.hex() if di.enc_rand else ""
+            old_enc_rand = self.get_setting("enc_rand") or ""
+            if new_enc_rand:
+                updates["is_encrypted"] = True
+                updates["enc_rand"] = new_enc_rand
+
+            await self.set_settings(updates)
+
+            if new_enc_rand and new_enc_rand != old_enc_rand:
+                self.log(
+                    f"enc_rand refresh ({reason}, {label}): updated "
+                    f"{old_enc_rand[:8] or 'empty'}… → {new_enc_rand[:8]}…"
+                )
+                return True
+
+            if new_enc_rand:
+                self.log(
+                    f"enc_rand refresh ({reason}, {label}): unchanged "
+                    f"{new_enc_rand[:8]}…"
+                )
+            else:
+                self.log(f"enc_rand refresh ({reason}, {label}): no enc_rand")
+            return False
+
+        return False
+
     # ── One-time startup info ─────────────────────────────────────────────────
 
     async def _refresh_info(self) -> None:
@@ -220,6 +283,11 @@ class HoymilesDevice(Device):
                     f"last_warn={self._last_poll_ok_warning})"
                 )
                 await self._probe_dtu_info("before rebuild")
+                enc_refreshed = await self._refresh_enc_rand_from_app_info(
+                    "no data recovery"
+                )
+                if enc_refreshed:
+                    self.log("Poll: DTU encryption metadata refreshed")
                 self._dtu_rebuilds += 1
                 await self._build_dtu()
                 self._first_no_data_at = None
