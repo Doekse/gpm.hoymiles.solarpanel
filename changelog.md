@@ -1,3 +1,11 @@
+v1.1.20
+
+Fixed: Night-time detection for locations west of UTC (e.g. UTC-6) where sunset falls on the next calendar day in UTC. The app now polls correctly during local daytime and only backs off during local night.
+
+v1.1.19
+
+Improved: Recovery for encrypted DTU-Pro-S / DTU WLite-S devices after overnight offline periods.
+
 v1.1.18
 
 Fixed: Daily Energy no longer drops to 0 at the end of the day when the DTU reports a temporary zero value at low power.

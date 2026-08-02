@@ -512,14 +512,26 @@ class HoymilesDevice(Device):
 
     def _is_night_time_from(self, sun_times: tuple[float, float] | None) -> bool:
         """True when outside solar window with a 30-minute buffer on each side.
-        Compares UTC current time against UTC sunrise/sunset."""
+
+        Compares UTC current time against UTC sunrise/sunset. For locations west
+        of the UTC meridian (e.g. UTC-6), the sunset returned by astral can be on
+        the next calendar day in UTC (sunset < sunrise). In that case the solar day
+        wraps past midnight UTC and the night window is the inverse interval.
+        """
         if sun_times is None:
             return False
         sunrise, sunset = sun_times
         try:
             now      = datetime.now(timezone.utc)
             utc_hour = now.hour + now.minute / 60
-            return utc_hour < (sunrise - 0.5) or utc_hour >= (sunset + 0.5)
+            start = sunrise - 0.5
+            end   = sunset  + 0.5
+
+            if start < end:
+                # Solar window falls within the same UTC day.
+                return utc_hour < start or utc_hour >= end
+            # Solar window crosses midnight UTC.
+            return end <= utc_hour < start
         except Exception as e:
             self.log(f"Night time check failed ({e}) — assuming daytime")
             return False

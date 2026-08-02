@@ -52,5 +52,8 @@
   },
   "1.1.19": {
     "en": "Improved recovery for encrypted DTU-Pro-S / DTU WLite-S devices after overnight offline periods."
+  },
+  "1.1.20": {
+    "en": "Fixed night-time detection for locations west of UTC (e.g. UTC-6) where sunset falls on the next calendar day in UTC. The app now polls correctly during local daytime and only backs off during local night."
   }
 }
