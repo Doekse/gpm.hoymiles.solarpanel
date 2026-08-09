@@ -20,6 +20,14 @@ _BACKOFF_NIGHT = 30 * 60   # seconds
 _BACKOFF_DAY   =  5 * 60   # seconds
 _NO_DATA_REBUILD_AFTER = 20 * 60  # seconds
 
+# Diagnostic reports submitted from the Homey app only include the last ~100
+# lines of stdout. Logging every single poll (every 35-60 s) or every single
+# failure of a long outage fills that budget in under 2 hours, pushing the
+# actual failure/onset out of the report. Routine/repeat lines are throttled
+# to this interval; state transitions (error, recovery, night enter/exit)
+# always log immediately regardless.
+_HEARTBEAT_INTERVAL_S = 15 * 60
+
 
 class HoymilesDevice(Device):
 
@@ -37,13 +45,31 @@ class HoymilesDevice(Device):
     _dtu_rebuilds: int = 0
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
+    _was_night: bool = False          # last poll's night/day state, for transition logging
+    _last_heartbeat_at: float = 0.0   # monotonic time of the last routine log line
+    _first_error_reason: str | None = None  # captured at the start of the current outage
+
+    def _heartbeat_due(self) -> bool:
+        """Throttle routine (non-transition) log lines to _HEARTBEAT_INTERVAL_S apart."""
+        now = time.monotonic()
+        if now - self._last_heartbeat_at >= _HEARTBEAT_INTERVAL_S:
+            self._last_heartbeat_at = now
+            return True
+        return False
+
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     async def on_init(self) -> None:
         self.log(f"Device init — {self.get_setting('ip')}")
         await self._build_dtu()
         await self._refresh_info()
-        await self._poll()
+        try:
+            # Best-effort — a bad first poll must not block on_init() from
+            # completing, or the device would never start its recurring
+            # poll loop below.
+            await self._poll()
+        except Exception as e:
+            self.log(f"Initial poll failed (will retry via poll loop): {type(e).__name__}: {e}")
         self._start_polling()
 
     async def on_settings(self, old_settings, new_settings, changed_keys) -> None:
@@ -66,18 +92,30 @@ class HoymilesDevice(Device):
 
         kwargs: dict = {"timeout": 20}
         if is_encrypted and enc_rand_hex:
-            kwargs["is_encrypted"] = True
-            kwargs["enc_rand"]     = bytes.fromhex(enc_rand_hex)
+            try:
+                kwargs["is_encrypted"] = True
+                kwargs["enc_rand"]     = bytes.fromhex(enc_rand_hex)
+            except ValueError:
+                # Corrupted setting (manual edit / partial write) — fall back to
+                # unencrypted rather than crash on_init()/on_settings() forever.
+                self.log(f"Ignoring invalid enc_rand setting: {enc_rand_hex!r}")
+                is_encrypted = False
+                kwargs.pop("is_encrypted", None)
+                kwargs.pop("enc_rand", None)
 
         return ip, is_encrypted, kwargs
 
     async def _build_dtu(self) -> None:
-        ip, is_encrypted, kwargs = self._dtu_config()
-        self._dtu = DTU(ip, **kwargs)
-        self.log(
-            f"DTU built — ip:{ip} encrypted:{is_encrypted} "
-            f"enc_rand:{'yes' if kwargs.get('enc_rand') else 'no'}"
-        )
+        try:
+            ip, is_encrypted, kwargs = self._dtu_config()
+            self._dtu = DTU(ip, **kwargs)
+            self.log(
+                f"DTU built — ip:{ip} encrypted:{is_encrypted} "
+                f"enc_rand:{'yes' if kwargs.get('enc_rand') else 'no'}"
+            )
+        except Exception as e:
+            self._dtu = None
+            self.log(f"_build_dtu failed: {type(e).__name__}: {e}")
 
     async def _probe_dtu_info(self, reason: str) -> None:
         """Log a fresh DTU app_info probe for diagnostics."""
@@ -153,7 +191,14 @@ class HoymilesDevice(Device):
                 updates["is_encrypted"] = True
                 updates["enc_rand"] = new_enc_rand
 
-            await self.set_settings(updates)
+            try:
+                await self.set_settings(updates)
+            except Exception as e:
+                self.log(
+                    f"enc_rand refresh ({reason}, {label}): settings save failed: "
+                    f"{type(e).__name__}: {e}"
+                )
+                return False
 
             if new_enc_rand and new_enc_rand != old_enc_rand:
                 self.log(
@@ -225,7 +270,10 @@ class HoymilesDevice(Device):
             if remaining > 0:
                 await asyncio.sleep(min(remaining, interval))
                 continue
-            await self._poll()
+            try:
+                await self._poll()
+            except Exception as e:
+                self.log(f"Poll loop error: {type(e).__name__}: {e}")
             await asyncio.sleep(interval)
 
     async def _poll(self) -> None:
@@ -254,27 +302,42 @@ class HoymilesDevice(Device):
                 await self._apply_night_backoff(sun_times, e)
             else:
                 self._first_no_data_at = None
+                reason = f"{type(e).__name__}: {e}"
                 self._consecutive_errors += 1
-                self.log(f"Poll error ({self._consecutive_errors}): {e}")
+                if self._consecutive_errors == 1:
+                    self._first_error_reason = reason
+                # Log immediately on the first failure and exactly when it crosses the
+                # unavailable threshold; otherwise throttle so a long outage doesn't
+                # burn through the ~100-line diagnostic report with identical lines.
+                if (self._consecutive_errors == 1
+                        or self._consecutive_errors == self._ERROR_THRESHOLD
+                        or self._heartbeat_due()):
+                    self.log(f"Poll error ({self._consecutive_errors}): {reason} "
+                             f"| first={self._first_error_reason}")
                 if self._consecutive_errors >= self._ERROR_THRESHOLD:
                     await self.set_unavailable(str(e))
             return
 
         if not data:
             now = time.monotonic()
-            if self._first_no_data_at is None:
+            just_started = self._first_no_data_at is None
+            if just_started:
                 self._first_no_data_at = now
             no_data_for = now - self._first_no_data_at
             last_ok = (
                 "never" if self._last_poll_ok_at is None
                 else f"{(now - self._last_poll_ok_at) / 60:.0f} min ago"
             )
-            self.log(
-                f"Poll: no data — inverter sleeping, keeping last values "
-                f"({no_data_for / 60:.0f} min, last_ok={last_ok}, "
-                f"last_warn={self._last_poll_ok_warning}, "
-                f"rebuilds={self._dtu_rebuilds})"
-            )
+            # Log immediately when the "no data" streak starts, then throttle —
+            # this repeats every poll (35-60 s) while the inverter sleeps, which
+            # would otherwise fill the diagnostic report's ~100-line budget fast.
+            if just_started or self._heartbeat_due():
+                self.log(
+                    f"Poll: no data — inverter sleeping, keeping last values "
+                    f"({no_data_for / 60:.0f} min, last_ok={last_ok}, "
+                    f"last_warn={self._last_poll_ok_warning}, "
+                    f"rebuilds={self._dtu_rebuilds})"
+                )
             if no_data_for >= _NO_DATA_REBUILD_AFTER:
                 self.log(
                     f"Poll: no data persisted — rebuilding DTU connection "
@@ -293,6 +356,17 @@ class HoymilesDevice(Device):
                 self._first_no_data_at = None
             return
 
+        # A transition (day resumed / recovered from failures) always forces the
+        # upcoming heartbeat line through immediately, bypassing the throttle,
+        # so the report shows fresh values right when something changed.
+        force_heartbeat = self._was_night or self._consecutive_errors > 0
+        if self._was_night:
+            self.log("day resumed — polling normally")
+            self._was_night = False
+        if self._consecutive_errors > 0:
+            self.log(f"poll recovered after {self._consecutive_errors} failed attempt(s) "
+                     f"| first failure was: {self._first_error_reason}")
+            self._first_error_reason = None
         self._first_no_data_at = None
         self._consecutive_errors = 0
         await self.set_available()
@@ -335,27 +409,43 @@ class HoymilesDevice(Device):
         total_wh = sum(pv.energy_total or 0 for pv in pv_list)
         await self._set("meter_power", total_wh / 1000)
 
-        if three_phase:
-            await self._poll_three_phase(data)
-        else:
-            await self._poll_single_phase(data)
+        # Each block below is independently guarded: an unexpected field on one
+        # DTU response (e.g. an attribute missing after a library update) must
+        # not skip the remaining capability updates or the flow triggers.
+        try:
+            if three_phase:
+                await self._poll_three_phase(data)
+            else:
+                await self._poll_single_phase(data)
+        except Exception as e:
+            _LOGGER.debug(f"Phase capability update failed: {e}")
 
-        for idx, pv in enumerate((data.pv_data or []), start=1):
-            if idx > panel_count:
-                break
-            sfx = f"pv{idx}"
-            await self._set(f"measure_power.{sfx}",   (pv.power   or 0) / 10)
-            await self._set(f"measure_voltage.{sfx}", (pv.voltage or 0) / 10)
-            await self._set(f"measure_current.{sfx}", (pv.current or 0) / 100)
+        try:
+            for idx, pv in enumerate((data.pv_data or []), start=1):
+                if idx > panel_count:
+                    break
+                sfx = f"pv{idx}"
+                await self._set(f"measure_power.{sfx}",   (pv.power   or 0) / 10)
+                await self._set(f"measure_voltage.{sfx}", (pv.voltage or 0) / 10)
+                await self._set(f"measure_current.{sfx}", (pv.current or 0) / 100)
+        except Exception as e:
+            _LOGGER.debug(f"Per-panel capability update failed: {e}")
 
         # ── Flow triggers ──────────────────────────────────────────────────────
-        await self._fire_flow_triggers(power_w, today_kwh)
+        try:
+            await self._fire_flow_triggers(power_w, today_kwh)
+        except Exception as e:
+            _LOGGER.debug(f"Flow trigger evaluation failed: {e}")
 
-        self.log(
-            f"poll ok | solar={power_w:.0f}W daily={today_kwh:.2f}kWh "
-            f"raw_daily={today_raw:.2f}kWh warn={warn_raw} "
-            f"failures={self._consecutive_errors}"
-        )
+        # Throttled to _HEARTBEAT_INTERVAL_S for the same reason as the other
+        # routine log lines above — force_heartbeat bypasses it right after a
+        # transition so the report shows it happened.
+        if force_heartbeat or self._heartbeat_due():
+            self.log(
+                f"poll ok | solar={power_w:.0f}W daily={today_kwh:.2f}kWh "
+                f"raw_daily={today_raw:.2f}kWh warn={warn_raw} "
+                f"failures={self._consecutive_errors}"
+            )
 
     def _warning_number(self, data) -> int:
         if data.tgs_data:
@@ -397,7 +487,10 @@ class HoymilesDevice(Device):
         inverter_sns = json.loads(self.get_setting("inverter_sns") or "[]")
 
         if not dtu_sn_str or not inverter_sns:
-            self.log("Hybrid poll: missing dtu_sn or inverter_sns")
+            # Throttled — a persistent misconfiguration would otherwise repeat this
+            # line on every poll (35-60 s) and fill the diagnostic report with it.
+            if self._heartbeat_due():
+                self.log("Hybrid poll: missing dtu_sn or inverter_sns")
             return
 
         try:
@@ -418,7 +511,10 @@ class HoymilesDevice(Device):
                     inverter_serial_number=int(inv_sn),
                 )
             except Exception as e:
-                self.log(f"Hybrid poll error ({inv_sn}): {e}")
+                # Throttled — a down inverter would otherwise repeat this every poll
+                # and fill the diagnostic report with identical lines.
+                if self._consecutive_errors == 0 or self._heartbeat_due():
+                    self.log(f"Hybrid poll error ({inv_sn}): {type(e).__name__}: {e}")
                 continue
 
             if not storage:
@@ -548,13 +644,18 @@ class HoymilesDevice(Device):
         self._backoff_until = time.monotonic() + _BACKOFF_NIGHT
         sunrise, sunset = sun_times
         suffix = f" | {reason}" if reason else ""
-        self.log(
-            f"poll: night — backing off 30 min | "
-            f"sunrise≈{sunrise:.2f}h sunset≈{sunset:.2f}h (UTC) "
-            f"last_power={self._last_poll_ok_power}W "
-            f"last_daily={self._last_poll_ok_daily}kWh "
-            f"last_warn={self._last_poll_ok_warning}{suffix}"
-        )
+        # Log immediately on entering night (transition) or every _HEARTBEAT_INTERVAL_S
+        # while it persists — every single 30-min backoff cycle would burn through the
+        # ~100-line diagnostic report window in under 2 days of normal operation.
+        if not self._was_night or self._heartbeat_due():
+            self.log(
+                f"poll: night — backing off 30 min | "
+                f"sunrise≈{sunrise:.2f}h sunset≈{sunset:.2f}h (UTC) "
+                f"last_power={self._last_poll_ok_power}W "
+                f"last_daily={self._last_poll_ok_daily}kWh "
+                f"last_warn={self._last_poll_ok_warning}{suffix}"
+            )
+        self._was_night = True
 
     # ── Apply zeros ───────────────────────────────────────────────────────────
 

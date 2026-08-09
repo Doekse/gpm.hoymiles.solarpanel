@@ -1,3 +1,14 @@
+v1.1.22
+
+Fixed: A possible startup failure when encryption settings (enc_rand) became corrupted — the device now falls back to unencrypted mode instead of failing to start.
+Improved: Crash resilience during polling — a single bad panel/phase reading no longer skips the rest of an update.
+Improved: Reduced routine log verbosity so diagnostic reports capture more useful history leading up to an issue instead of repeated status lines.
+
+v1.1.21
+
+Fixed: Prevented a crash during encrypted DTU recovery when Homey fails to save refreshed DTU settings such as signal strength, firmware info, or encryption metadata.
+Improved: Polling now continues after unexpected polling errors instead of stopping silently.
+
 v1.1.20
 
 Fixed: Night-time detection for locations west of UTC (e.g. UTC-6) where sunset falls on the next calendar day in UTC. The app now polls correctly during local daytime and only backs off during local night.
