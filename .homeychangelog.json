@@ -60,6 +60,6 @@
     "en": "Fixed a crash during encrypted DTU recovery when Homey fails to save refreshed DTU settings such as signal strength, firmware info, or encryption metadata. Polling now continues after unexpected polling errors instead of stopping silently."
   },
   "1.1.22": {
-    "en": "Fixed a possible startup failure when encryption settings became corrupted. Improved crash resilience so a single bad panel reading no longer skips the rest of a poll update. Reduced routine log verbosity so diagnostic reports capture more useful history leading up to an issue instead of repeated status lines."
+    "en": "Fixed a possible startup failure when encryption settings became corrupted. Improved crash resilience so a single bad panel reading no longer skips the rest of a poll update. Reduced routine log verbosity so diagnostic reports capture more useful history leading up to an issue instead of repeated status lines. Added a Fault/Alarm Detail capability that decodes the inverter's warning code into readable text instead of just an on/off alarm flag."
   }
 }

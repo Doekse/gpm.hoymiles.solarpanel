@@ -172,7 +172,7 @@ def _build_capabilities(panel_count: int, three_phase: bool, is_hybrid: bool) ->
         caps.append("measure_voltage")
         caps.append("measure_current")
 
-    caps += ["measure_frequency", "measure_temperature", "alarm_generic"]
+    caps += ["measure_frequency", "measure_temperature", "alarm_generic", "fault_description"]
     return caps
 
 

@@ -28,6 +28,128 @@ _NO_DATA_REBUILD_AFTER = 20 * 60  # seconds
 # always log immediately regardless.
 _HEARTBEAT_INTERVAL_S = 15 * 60
 
+# ── Warning/fault code table ──────────────────────────────────────────────
+# warning_number is a single code (not a bitfield, unlike Deye). Source:
+# github.com/tbnobody/OpenDTU lib/Hoymiles/src/parser/AlarmLogParser.cpp,
+# itself derived from the Hoymiles S-Miles Installer App's warn_code.json —
+# not officially published by Hoymiles, but actively maintained by the
+# OpenDTU project against real hardware. NOT exhaustive; an unrecognised code
+# still shows as "Warning {N}" rather than being silently dropped.
+_WARNING_MESSAGES: dict[int, str] = {
+    1: "Inverter start",
+    2: "Time calibration",
+    3: "EEPROM reading and writing error during operation",
+    4: "Offline",
+    11: "Grid voltage surge",
+    12: "Grid voltage sharp drop",
+    13: "Grid frequency mutation",
+    14: "Grid phase mutation",
+    15: "Grid transient fluctuation",
+    36: "INV overvoltage or overcurrent",
+    46: "FB overvoltage",
+    47: "FB overcurrent",
+    48: "FB clamp overvoltage",
+    49: "FB clamp overvoltage",
+    61: "Calibration parameter error",
+    62: "System configuration parameter error",
+    63: "Abnormal power generation data",
+    71: "Grid overvoltage load reduction (VW) function enable",
+    72: "Power grid over-frequency load reduction (FW) function enable",
+    73: "Over-temperature load reduction (TW) function enable",
+    95: "PV-1: Module in suspected shadow",
+    96: "PV-2: Module in suspected shadow",
+    97: "PV-3: Module in suspected shadow",
+    98: "PV-4: Module in suspected shadow",
+    121: "Over temperature protection",
+    122: "Microinverter is suspected of being stolen",
+    123: "Locked by remote control",
+    124: "Shut down by remote control",
+    125: "Grid configuration parameter error",
+    126: "Software error code 126",
+    127: "Firmware error",
+    128: "Hardware configuration error",
+    129: "Abnormal bias",
+    130: "Offline",
+    141: "Grid overvoltage",
+    142: "Grid: 10 min value grid overvoltage",
+    143: "Grid undervoltage",
+    144: "Grid overfrequency",
+    145: "Grid underfrequency",
+    146: "Grid: rapid grid frequency change rate",
+    147: "Power grid outage",
+    148: "Grid disconnection",
+    149: "Grid: island detected",
+    150: "DCI exceeded",
+    152: "Grid: phase angle difference between two phases exceeded 5°, >10 times",
+    171: "Grid: abnormal phase difference between phase to phase",
+    181: "Abnormal insulation impedance",
+    182: "Abnormal grounding",
+    205: "MPPT-A: input overvoltage",
+    206: "MPPT-B: input overvoltage",
+    207: "MPPT-A: input undervoltage",
+    208: "MPPT-B: input undervoltage",
+    209: "PV-1: no input",
+    210: "PV-2: no input",
+    211: "PV-3: no input",
+    212: "PV-4: no input",
+    213: "MPPT-A: PV-1 & PV-2 abnormal wiring",
+    214: "MPPT-B: PV-3 & PV-4 abnormal wiring",
+    215: "PV-1 / MPPT-C: input overvoltage",
+    216: "PV-1 / MPPT-C: input undervoltage",
+    217: "PV-2: input overvoltage / PV-5: no input",
+    218: "PV-2: input undervoltage / PV-6: no input",
+    219: "PV-3: input overvoltage / MPPT-C: PV-5 & PV-6 abnormal wiring",
+    220: "PV-3: input undervoltage",
+    221: "PV-4: input overvoltage / abnormal wiring of grid neutral line",
+    222: "PV-4: input undervoltage",
+    301: "FB-A: internal short circuit failure",
+    302: "FB-B: internal short circuit failure",
+    303: "FB-A: overcurrent protection failure",
+    304: "FB-B: overcurrent protection failure",
+    305: "FB-A: clamp circuit failure",
+    306: "FB-B: clamp circuit failure",
+    307: "INV power device failure",
+    308: "INV overcurrent or overvoltage protection failure",
+    309: "Hardware error code 309",
+    310: "Hardware error code 310",
+    311: "Hardware error code 311",
+    312: "Hardware error code 312",
+    313: "Hardware error code 313",
+    314: "Hardware error code 314",
+    1111: "Repeater",
+    5020: "H-bridge MOSFET overcurrent or H-bridge overvoltage",
+    5060: "Abnormal bias",
+    5070: "Over temperature protection",
+    5080: "Grid overvoltage/undervoltage",
+    5090: "Grid overfrequency/underfrequency",
+    5100: "Island detected",
+    5110: "GFDI failure",
+    5120: "EEPROM reading and writing error",
+    5150: "10 min value grid overvoltage",
+    5160: "Grid transient fluctuation",
+    5200: "Firmware error",
+    5520: "H-bridge MOSFET overcurrent or H-bridge overvoltage",
+    8310: "Shut down by remote control",
+    8320: "Locked by remote control",
+    9000: "Microinverter is suspected of being stolen",
+    **{c: "PV-1: MOSFET overcurrent (II)" for c in (5011,)},
+    **{c: "PV-2: MOSFET overcurrent (II)" for c in (5012,)},
+    **{c: "PV-3: MOSFET overcurrent (II)" for c in (5013,)},
+    **{c: "PV-4: MOSFET overcurrent (II)" for c in (5014,)},
+    **{2000 + i: "Standby" for i in range(5)},
+    **{3001 + i: "Reset" for i in range(4)},
+    **{5041 + i: f"PV-{i + 1}: overcurrent (II)" for i in range(4)},
+    **{5051 + i: f"PV-{i + 1}: overvoltage/undervoltage" for i in range(4)},
+    **{5141 + i: "FB clamp overvoltage" for i in range(4)},
+    **{5511 + i: f"PV-{i + 1}: MOSFET overcurrent-H" for i in range(4)},
+}
+
+
+def _decode_warning(code: int) -> str:
+    if not code:
+        return "OK"
+    return _WARNING_MESSAGES.get(code, f"Warning {code}")
+
 
 class HoymilesDevice(Device):
 
@@ -464,6 +586,7 @@ class HoymilesDevice(Device):
         await self._set("measure_frequency",   (sgs.frequency or 0) / 100)
         await self._set("measure_temperature", self._decode_temp(sgs.temperature or 0))
         await self._set("alarm_generic",       warn_raw > _INFORMATIONAL_WARN_MAX)
+        await self._set("fault_description",   _decode_warning(warn_raw))
 
     async def _poll_three_phase(self, data) -> None:
         tgs = (data.tgs_data or [None])[0]
@@ -479,6 +602,7 @@ class HoymilesDevice(Device):
         await self._set("measure_frequency",       (tgs.frequency       or 0) / 100)
         await self._set("measure_temperature",     self._decode_temp(tgs.temperature or 0))
         await self._set("alarm_generic",           warn_raw > _INFORMATIONAL_WARN_MAX)
+        await self._set("fault_description",       _decode_warning(warn_raw))
 
     # ── Hybrid polling (energy storage) ──────────────────────────────────────
 
