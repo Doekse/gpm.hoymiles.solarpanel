@@ -463,5 +463,80 @@ class HoymilesDriver(Driver):
         session.set_handler("confirm_structure", on_confirm_structure)
         session.set_handler("list_devices",     on_list_devices)
 
+    async def on_repair(self, session, device) -> None:
+        """
+        Repair flow — lets the user fix the DTU's IP address or refresh its
+        encryption metadata (enc_rand) without removing and re-adding the
+        device. Does NOT touch panel_count / three_phase / is_hybrid — those
+        determine which capabilities the device has, and changing them still
+        requires re-pairing.
+        """
+        self.log(f"onRepair started for device {device.get_id()}")
+
+        def _current_ip() -> str:
+            return str(device.get_setting("ip") or "").strip()
+
+        def _current_dtu_sn() -> str:
+            return str(device.get_setting("dtu_sn") or "").strip()
+
+        async def on_get_current(data=None) -> dict:
+            ip = _current_ip()
+            dtu_sn = _current_dtu_sn()
+            self.log(f"Repair current — ip:{ip or '<empty>'} dtu_sn:{dtu_sn or '<empty>'}")
+            return {"ip": ip, "dtu_sn": dtu_sn}
+
+        async def on_run_detection(data=None) -> dict:
+            data = data or {}
+            ip = str(data.get("ip") or _current_ip()).strip()
+            if not ip:
+                raise Exception("No IP configured — enter an IP address and save first.")
+            parts = ip.split(".")
+            if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+                raise Exception(f"Invalid IP address: {ip}")
+
+            self.log(f"Repair: querying DTU at {ip}")
+            dtu = DTU(ip, timeout=10)
+            try:
+                app_info = await asyncio.wait_for(dtu.async_app_information_data(), timeout=10)
+            except Exception as e:
+                raise Exception(f"Cannot reach DTU at {ip}: {e}")
+            if not app_info:
+                raise Exception(f"DTU at {ip} did not respond with app info.")
+
+            dtu_sn = str(app_info.dtu_serial_number or "") or _current_dtu_sn()
+            is_encrypted = False
+            enc_rand = ""
+            if app_info.dtu_info and app_info.dtu_info.dfs and _is_encrypted(app_info.dtu_info.dfs):
+                is_encrypted = True
+                enc_rand = app_info.dtu_info.enc_rand.hex() if app_info.dtu_info.enc_rand else ""
+
+            self.log(f"Repair detection: dtu_sn:{dtu_sn} encrypted:{is_encrypted}")
+            return {"dtu_sn": dtu_sn, "is_encrypted": is_encrypted, "enc_rand": enc_rand}
+
+        async def on_save_repair(data: dict) -> bool:
+            current_ip = _current_ip()
+            ip = str(data.get("ip") or current_ip).strip()
+            new_settings: dict = {}
+            if ip and ip != current_ip:
+                parts = ip.split(".")
+                if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+                    raise Exception(f"Invalid IP address: {ip}")
+                new_settings["ip"] = ip
+            if data.get("dtu_sn"):
+                new_settings["dtu_sn"] = str(data["dtu_sn"])
+            if "is_encrypted" in data:
+                new_settings["is_encrypted"] = bool(data["is_encrypted"])
+            if data.get("enc_rand"):
+                new_settings["enc_rand"] = str(data["enc_rand"])
+            if not new_settings:
+                return True
+            self.log(f"Repair: applying settings {new_settings}")
+            await device.set_settings(new_settings)
+            return True
+
+        session.set_handler("get_current",   on_get_current)
+        session.set_handler("run_detection", on_run_detection)
+        session.set_handler("save_repair",   on_save_repair)
+
 
 homey_export = HoymilesDriver

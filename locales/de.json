@@ -52,5 +52,17 @@
     "cannot_reach": "DTU unter __ip__ nicht erreichbar. IP und Netzwerk prüfen.",
     "no_dtu_responded": "Kein Hoymiles DTU hat geantwortet. IP und Netzwerk prüfen.",
     "no_devices": "Keine Geräte gefunden — bitte zurückgehen und erneut versuchen."
+  },
+  "repair": {
+    "title": "DTU-Verbindung reparieren",
+    "note": "Panelanzahl, Dreiphasig und Hybrid können hier nicht geändert werden — dafür ist ein erneutes Koppeln nötig, um Gerätekacheln hinzuzufügen oder zu entfernen.",
+    "ip_label": "DTU-IP-Adresse",
+    "ip_hint": "Die lokale IP-Adresse Ihres Hoymiles-DTU.",
+    "detect_button": "Erneut erkennen",
+    "detecting": "Erkennung läuft…",
+    "detected_badge": "DTU hat geantwortet — SN: ",
+    "encrypted": "verschlüsselt",
+    "save_button": "Speichern",
+    "saving": "Wird gespeichert…"
   }
 }

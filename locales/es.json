@@ -52,5 +52,17 @@
     "cannot_reach": "No se puede alcanzar el DTU en __ip__. Comprueba la IP y la red.",
     "no_dtu_responded": "Ningún DTU Hoymiles respondió. Comprueba la IP y la red.",
     "no_devices": "No se encontraron dispositivos — vuelve atrás e inténtalo de nuevo."
+  },
+  "repair": {
+    "title": "Reparar conexión del DTU",
+    "note": "El número de paneles, trifásico e híbrido no se pueden cambiar aquí — eso requiere volver a emparejar para agregar o quitar tarjetas de dispositivo.",
+    "ip_label": "Dirección IP del DTU",
+    "ip_hint": "La IP local de su DTU Hoymiles.",
+    "detect_button": "Re-detectar",
+    "detecting": "Ejecutando detección…",
+    "detected_badge": "El DTU respondió — SN: ",
+    "encrypted": "cifrado",
+    "save_button": "Guardar",
+    "saving": "Guardando…"
   }
 }

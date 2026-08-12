@@ -52,5 +52,17 @@
     "cannot_reach": "Kan inte nå DTU på __ip__. Kontrollera IP och nätverk.",
     "no_dtu_responded": "Ingen Hoymiles DTU svarade. Kontrollera IP och nätverk.",
     "no_devices": "Inga enheter hittades — gå tillbaka och försök igen."
+  },
+  "repair": {
+    "title": "Reparera DTU-anslutning",
+    "note": "Antal paneler, trefas och hybrid kan inte ändras här — det kräver ompar-koppling för att lägga till eller ta bort enhetsplattor.",
+    "ip_label": "DTU IP-adress",
+    "ip_hint": "Den lokala IP-adressen till din Hoymiles DTU.",
+    "detect_button": "Identifiera igen",
+    "detecting": "Identifiering pågår…",
+    "detected_badge": "DTU svarade — SN: ",
+    "encrypted": "krypterad",
+    "save_button": "Spara",
+    "saving": "Sparar…"
   }
 }
