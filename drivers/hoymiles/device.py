@@ -458,27 +458,24 @@ class HoymilesDevice(Device):
         """
         if bool(self.get_setting("is_hybrid")):
             return
-        # TEMPORARY: force a clean remove+re-add instead of just fixing options
-        # on the existing capability. Setting the icon via set_capability_options
-        # on an already-added capability isn't showing up on-device even after
-        # the cleaned-up SVG — forcing Homey to recreate the capability from
-        # scratch (icon included at add time) is the next thing to try. Safe to
-        # do unconditionally right now since nobody but this dev install has
-        # the capability yet. Revert to add-only once confirmed working.
-        if self.has_capability("fault_description"):
+        if not self.has_capability("fault_description"):
             try:
-                await self.remove_capability("fault_description")
-                self.log("Removed fault_description cap (forcing icon re-add)")
+                await self.add_capability("fault_description")
+                self.log("Added missing fault_description cap (recovered from pre-1.1.22 pairing)")
             except Exception as e:
-                _LOGGER.warning(f"Could not remove fault_description: {e}")
+                _LOGGER.warning(f"Could not add fault_description: {e}")
+                return
+        # Runs every init, not just right after adding — a device that got
+        # the capability from an earlier version of this method (before the
+        # icon existed) would otherwise never pick it up, since the
+        # `not has_capability(...)` branch above only runs once. Idempotent
+        # and cheap, so no harm in re-applying it on an already-correct device.
         try:
-            await self.add_capability("fault_description")
             await self.set_capability_options(
                 "fault_description", {"icon": f"{_ASSETS}/fault_alarm_detail.svg"}
             )
-            self.log("Added fault_description cap with icon")
         except Exception as e:
-            _LOGGER.warning(f"Could not add fault_description: {e}")
+            _LOGGER.warning(f"Set icon for fault_description failed: {e}")
 
     # ── DTU instance ──────────────────────────────────────────────────────────
 
