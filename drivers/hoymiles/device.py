@@ -700,6 +700,14 @@ class HoymilesDevice(Device):
                 self._consecutive_errors += 1
                 if self._consecutive_errors == 1:
                     self._first_error_reason = reason
+                    # Can't reach the DTU at all (e.g. inverter already asleep
+                    # from shade, before the calculated sunset), so there's no
+                    # way to know of an active fault — don't leave a stale one
+                    # displayed until the unavailable threshold is crossed.
+                    if self.has_capability("alarm_generic"):
+                        await self._set("alarm_generic", False)
+                    if self.has_capability("fault_description"):
+                        await self._set("fault_description", _decode_warning(0))
                 # Log immediately on the first failure and exactly when it crosses the
                 # unavailable threshold; otherwise throttle so a long outage doesn't
                 # burn through the ~100-line diagnostic report with identical lines.
