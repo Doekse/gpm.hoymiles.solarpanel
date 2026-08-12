@@ -10,7 +10,7 @@ from astral import LocationInfo
 from astral.sun import sun
 
 from app.app import DEBUG_LOG as _DEBUG_LOG
-from app.drivers.hoymiles.driver import capability_title
+from app.drivers.hoymiles.driver import capability_title, _ASSETS
 from homey.device import Device
 from hoymiles_wifi.dtu import DTU
 
@@ -289,6 +289,14 @@ class HoymilesDevice(Device):
         if not self.has_capability("fault_description"):
             try:
                 await self.add_capability("fault_description")
+                # addCapability() at runtime doesn't inherit the icon set in
+                # pairing's capabilitiesOptions — restore it explicitly.
+                try:
+                    await self.set_capability_options(
+                        "fault_description", {"icon": f"{_ASSETS}/fault_alarm_detail.svg"}
+                    )
+                except Exception as e:
+                    _LOGGER.warning(f"Set icon for fault_description failed: {e}")
                 self.log("Added missing fault_description cap (recovered from pre-1.1.22 pairing)")
             except Exception as e:
                 _LOGGER.warning(f"Could not add fault_description: {e}")

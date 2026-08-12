@@ -14,6 +14,11 @@ _LOGGER = logging.getLogger(__name__)
 _IS_ENCRYPTED_BIT = IS_ENCRYPTED_BIT_INDEX
 _DTU_PORT = 10081
 
+# Capability icon SVG paths (relative to app root — confirmed working via the
+# Deye app's identical convention, distinct from the per-device pairing icon
+# path, which is relative to the driver's own assets folder instead).
+_ASSETS = "/drivers/hoymiles/assets"
+
 _CAPABILITY_TITLES: dict[str, dict[str, str]] = {
     "Current Power": {
         "en": "Current Power", "nl": "Huidig Vermogen", "de": "Aktuelle Leistung",
@@ -206,6 +211,9 @@ def _build_capabilities_options(panel_count: int, three_phase: bool, is_hybrid: 
     }
     opts["measure_temperature"] = {
         "title": capability_title("Inverter Temperature"),
+    }
+    opts["fault_description"] = {
+        "icon": f"{_ASSETS}/fault_alarm_detail.svg",
     }
 
     if three_phase:
