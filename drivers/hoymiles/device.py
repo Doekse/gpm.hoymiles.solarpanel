@@ -717,6 +717,13 @@ class HoymilesDevice(Device):
             just_started = self._first_no_data_at is None
             if just_started:
                 self._first_no_data_at = now
+                # No live data means we have no way to know of an active fault —
+                # clear any stale alarm/fault text instead of leaving it frozen
+                # at its last daytime value for the rest of the outage.
+                if self.has_capability("alarm_generic"):
+                    await self._set("alarm_generic", False)
+                if self.has_capability("fault_description"):
+                    await self._set("fault_description", _decode_warning(0))
             no_data_for = now - self._first_no_data_at
             last_ok = (
                 "never" if self._last_poll_ok_at is None
