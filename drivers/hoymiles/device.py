@@ -189,6 +189,7 @@ class HoymilesDevice(Device):
         self.log(f"Device init — {self.get_setting('ip')}")
         await self._build_dtu()
         await self._refresh_info()
+        await self._ensure_structural_caps()
         try:
             # Best-effort — a bad first poll must not block on_init() from
             # completing, or the device would never start its recurring
@@ -275,6 +276,22 @@ class HoymilesDevice(Device):
 
     async def on_deleted(self) -> None:
         self._stop_polling()
+
+    async def _ensure_structural_caps(self) -> None:
+        """Add capabilities introduced after this device was originally paired.
+
+        Only adds, never removes — safe to run on every init. Hybrid devices
+        don't get fault_description: _poll_hybrid() aggregates warning_number
+        across multiple inverter_sns, so there's no single code to decode.
+        """
+        if bool(self.get_setting("is_hybrid")):
+            return
+        if not self.has_capability("fault_description"):
+            try:
+                await self.add_capability("fault_description")
+                self.log("Added missing fault_description cap (recovered from pre-1.1.22 pairing)")
+            except Exception as e:
+                _LOGGER.warning(f"Could not add fault_description: {e}")
 
     # ── DTU instance ──────────────────────────────────────────────────────────
 
