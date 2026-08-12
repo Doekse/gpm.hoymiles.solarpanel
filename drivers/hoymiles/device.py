@@ -10,6 +10,7 @@ from astral import LocationInfo
 from astral.sun import sun
 
 from app.app import DEBUG_LOG as _DEBUG_LOG
+from app.drivers.hoymiles.driver import capability_title
 from homey.device import Device
 from hoymiles_wifi.dtu import DTU
 
@@ -151,6 +152,9 @@ def _decode_warning(code: int) -> str:
     return _WARNING_MESSAGES.get(code, f"Warning {code}")
 
 
+_UNSET = object()  # sentinel distinguishing "no value passed" from an explicit None
+
+
 class HoymilesDevice(Device):
 
     _dtu: DTU | None = None
@@ -193,6 +197,8 @@ class HoymilesDevice(Device):
         except Exception as e:
             self.log(f"Initial poll failed (will retry via poll loop): {type(e).__name__}: {e}")
         self._start_polling()
+        await self._sync_detail_caps("showPvDetail", self._pv_detail_caps())
+        await self._sync_detail_caps("showAcDetail", self._ac_detail_caps())
 
     async def on_settings(self, old_settings, new_settings, changed_keys) -> None:
         if any(k in changed_keys for k in ("ip", "is_encrypted", "enc_rand")):
@@ -201,6 +207,71 @@ class HoymilesDevice(Device):
             "polling_interval", "solar_latitude", "solar_longitude"
         )):
             self._start_polling()
+        if "showPvDetail" in changed_keys:
+            await self._sync_detail_caps("showPvDetail", self._pv_detail_caps(), new_settings.get("showPvDetail"))
+        if "showAcDetail" in changed_keys:
+            await self._sync_detail_caps("showAcDetail", self._ac_detail_caps(), new_settings.get("showAcDetail"))
+
+    def _pv_detail_caps(self) -> dict[str, tuple[str, dict]]:
+        """{capability_id: (title_key, title_kwargs)} for per-panel Voltage/Current."""
+        panel_count = int(self.get_setting("panel_count") or 0)
+        caps: dict[str, tuple[str, dict]] = {}
+        for i in range(1, panel_count + 1):
+            caps[f"measure_voltage.pv{i}"] = ("Panel Voltage", {"i": i})
+            caps[f"measure_current.pv{i}"] = ("Panel Current", {"i": i})
+        return caps
+
+    def _ac_detail_caps(self) -> dict[str, tuple[str, dict]]:
+        """{capability_id: (title_key, title_kwargs)} for the AC connection Voltage/Current."""
+        if bool(self.get_setting("three_phase")):
+            return {
+                f"measure_voltage.phase_{ph}": ("Voltage Phase", {"label": label})
+                for ph, label in (("a", "A"), ("b", "B"), ("c", "C"))
+            } | {
+                f"measure_current.phase_{ph}": ("Current Phase", {"label": label})
+                for ph, label in (("a", "A"), ("b", "B"), ("c", "C"))
+            }
+        return {
+            "measure_voltage": ("AC Voltage", {}),
+            "measure_current": ("AC Current", {}),
+        }
+
+    async def _sync_detail_caps(self, setting_id: str, cap_titles: dict[str, tuple[str, dict]], value=_UNSET) -> None:
+        """Add/remove a group of optional detail capabilities to match a device
+        setting — no re-pairing needed.
+
+        `value`, when given, is used as-is (the fresh value from on_settings'
+        new_settings — self.get_setting() can still return the *previous*
+        value at the moment on_settings fires, since Homey calls this hook
+        before persisting the change; reading it there would react one
+        toggle behind). When omitted (on_init, no settings-change event to
+        read from), falls back to self.get_setting().
+        """
+        raw = self.get_setting(setting_id) if value is _UNSET else value
+        # Devices paired before this setting existed have no stored value for
+        # it — get_setting() returns None. Treat that as "show" (matches the
+        # driver.compose.json default of true), not "hide": these capabilities
+        # must never disappear from an existing device unless the user
+        # explicitly unchecks the setting themselves.
+        show = True if raw is None else bool(raw)
+        for cap, (title_key, title_kwargs) in cap_titles.items():
+            try:
+                if show and not self.has_capability(cap):
+                    await self.add_capability(cap)
+                    # addCapability() at runtime doesn't inherit the per-device
+                    # title set at pairing — it falls back to the capability's
+                    # generic built-in title (every measure_voltage.* tile
+                    # just says "Voltage"). Restore the specific one.
+                    try:
+                        await self.set_capability_options(cap, {"title": capability_title(title_key, **title_kwargs)})
+                    except Exception as e:
+                        _LOGGER.warning(f"Set title for {cap} failed: {e}")
+                    self.log(f"Added detail capability {cap} ({setting_id})")
+                elif not show and self.has_capability(cap):
+                    await self.remove_capability(cap)
+                    self.log(f"Removed detail capability {cap} ({setting_id})")
+            except Exception as e:
+                _LOGGER.warning(f"Sync detail capability {cap} ({setting_id}) failed: {e}")
 
     async def on_deleted(self) -> None:
         self._stop_polling()

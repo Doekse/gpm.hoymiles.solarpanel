@@ -153,6 +153,20 @@
       "value": false
     },
     {
+      "id": "showPvDetail",
+      "type": "checkbox",
+      "label": { "en": "Show per-panel voltage/current detail" },
+      "hint": { "en": "Uncheck to remove the per-panel Voltage/Current tiles — Panel {n} Power already shows what each panel produces. Takes effect immediately, no re-pairing needed." },
+      "value": true
+    },
+    {
+      "id": "showAcDetail",
+      "type": "checkbox",
+      "label": { "en": "Show AC connection voltage/current detail" },
+      "hint": { "en": "Uncheck to remove the inverter's AC connection Voltage/Current tiles — Current Power already shows what matters day to day. Takes effect immediately, no re-pairing needed." },
+      "value": true
+    },
+    {
       "id": "is_hybrid",
       "type": "checkbox",
       "label": {
