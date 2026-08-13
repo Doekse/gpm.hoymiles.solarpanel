@@ -3,3 +3,5 @@ other/*
 CLAUDE.md
 AGENTS.md
 *.md
+__pycache__/
+*.pyc
