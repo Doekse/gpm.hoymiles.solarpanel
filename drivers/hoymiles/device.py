@@ -49,6 +49,7 @@ class HoymilesDevice(Device):
     _dtu_rebuilds: int = 0
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
+    _had_fault: bool | None = None      # None = first poll, state not yet known
     _was_night: bool = False          # last poll's night/day state, for transition logging
     _last_heartbeat_at: float = 0.0   # monotonic time of the last routine log line
     _first_error_reason: str | None = None  # captured at the start of the current outage
@@ -805,6 +806,19 @@ class HoymilesDevice(Device):
     async def _fire_flow_triggers(self, power_w: float, today_kwh: float) -> None:
         """Fire flow triggers based on state transitions detected in poll values."""
         is_producing = power_w > 5.0
+
+        # Fault/alarm detected — edge-triggered, only on the OK → fault transition
+        # (fault_description was already updated earlier in this poll).
+        if self.has_capability("fault_description"):
+            description = self.get_capability_value("fault_description") or "OK"
+            has_fault = description != "OK"
+            if self._had_fault is None:
+                self._had_fault = has_fault
+            elif has_fault and not self._had_fault:
+                self._had_fault = True
+                await self._trigger("fault_detected", {"description": description})
+            elif not has_fault and self._had_fault:
+                self._had_fault = False
 
         if self._was_producing is None:
             # First poll after startup — record state silently, no transition to fire.

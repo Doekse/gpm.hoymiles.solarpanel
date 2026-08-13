@@ -7,6 +7,8 @@ from typing import Any
 
 from homey.app import App
 
+from app.lib.fault_codes import known_fault_names
+
 # ── Debug verbosity ───────────────────────────────────────────────────────────
 # True  → one log line per poll (solar W + daily kWh) — homey app run --remote
 # False → silent (production)
@@ -46,9 +48,43 @@ class HoymilesApp(App):
             power = device.get_capability_value("measure_power") or 0
             return float(power) > 5.0
 
+        async def _has_active_fault(
+            card_arguments: Mapping[str, Any], **kwargs: Any
+        ) -> bool:
+            device = card_arguments.get("device")
+            if not device:
+                return False
+            current = device.get_capability_value("fault_description") or "OK"
+            return current != "OK"
+
+        async def _fault_is(card_arguments: Mapping[str, Any], **kwargs: Any) -> bool:
+            device = card_arguments.get("device")
+            fault = card_arguments.get("fault")
+            if not device or not fault:
+                return False
+            name = fault.get("name") if isinstance(fault, dict) else fault
+            current = device.get_capability_value("fault_description") or "OK"
+            return name == current
+
+        async def _fault_autocomplete(query: str, **kwargs: Any) -> list[dict]:
+            device = kwargs.get("device")
+            lang = device._lang() if device else "en"
+            names = known_fault_names(lang)
+            if not device or not bool(device.get_setting("is_hybrid")):
+                # No battery on non-hybrid devices — never suggest
+                # battery/BMS-specific faults for them.
+                names = [n for n in names if "battery" not in n.lower() and "bms" not in n.lower()]
+            query_lower = (query or "").lower()
+            return [{"name": n} for n in names if query_lower in n.lower()]
+
         try:
             self.homey.flow.get_condition_card("is_solar_producing") \
                 .register_run_listener(_is_solar_producing)
+            self.homey.flow.get_condition_card("has_active_fault") \
+                .register_run_listener(_has_active_fault)
+            fault_is_card = self.homey.flow.get_condition_card("fault_is")
+            fault_is_card.register_run_listener(_fault_is)
+            fault_is_card.register_argument_autocomplete_listener("fault", _fault_autocomplete)
         except Exception as e:
             self.log(f"Flow condition registration failed: {e}")
 

@@ -15,6 +15,14 @@
 # (github.com/tbnobody/OpenDTU), itself derived from an older version of
 # the same Hoymiles app.
 #
+# 2026-08-12: codes 205-218 corrected against Hoymiles' official
+# "Microinversor monofásico HMS-800/900/1000-2T" user manual (troubleshooting
+# table, section 6.1) — the S-Miles/OpenDTU-sourced text at those numbers
+# described battery/BMS conditions that don't apply to this battery-less
+# microinverter family; the manual's MPPT/PV-port wiring and voltage
+# descriptions are used instead. Codes 202-204 (battery) and 219-220 (PV2,
+# possibly duplicating 217-218) are unconfirmed either way — left as-is.
+#
 # {code: {lang: text}} — lang is a 2-char Homey language code. Falls back
 # to "en" in _decode_warning() if the device's language isn't covered for
 # a given code (many codes only have "en" from the OpenDTU-only fallback).
@@ -137,20 +145,22 @@ _WARNING_MESSAGES: dict[int, dict[str, str]] = {
     202: {"en": "Battery charge overcurrent protection", "de": "Überstromschutz beim Laden des Akkus", "es": "Battery charge overcurrent protection", "fr": "Protection contre les surintensités en cas de charge de la batterie", "it": "Battery charge overcurrent protection", "nl": "Accu-laad-overstroombeveiliging", "pl": "Zabezpieczenie przetężeniowe ładowania akumulatora"},
     203: {"en": "Battery discharge overcurrent protection", "de": "Überstromschutz beim Entladen des Akkus", "es": "Battery discharge overcurrent protection", "fr": "Protection contre les surintensités en cas de décharge de la batterie", "it": "Battery discharge overcurrent protection", "nl": "Accu-ontlaad-overstroombeveiliging", "pl": "Zabezpieczenie przetężeniowe rozładowania akumulatora"},
     204: {"en": "Battery overvoltage protection", "de": "Akkuüberspannungsschutz", "es": "Protección contra sobretensión de la batería", "fr": "Protection contre les surtensions de la batterie", "it": "Battery overvoltage protection", "nl": "Accu-overspanningsbeveiliging", "pl": "Zabezpieczenie przepięciowe akumulatora"},
-    205: {"en": "Battery undervoltage protection", "de": "Akkuunterspannungsschutz", "es": "Protección contra subtensión de la batería", "fr": "Protection contre les sous-tensions de la batterie", "it": "Battery undervoltage protection", "nl": "Accu-onderspanningsbeveiliging", "pl": "Zabezpieczenie podnapięciowe akumulatora"},
-    206: {"en": "High temperature protection", "de": "Hochtemperaturschutz", "es": "Protección contra altas temperaturas", "fr": "Protection contre les températures élevées", "it": "High temperature protection", "nl": "Hoge-temperatuurbeveiliging", "pl": "Ochrona przed wysoką temperaturą"},
-    207: {"en": "Low temperature charge protection", "de": "Niedrigtemperatur-Ladeschutz", "es": "Protección contra la carga a baja temperatura", "fr": "Protection de charge aux basses températures", "it": "Low temperature charge protection", "nl": "Lage-temperatuuroplaadbeveiliging", "pl": "Ochrona przed ładowaniem w niskiej temperaturze"},
-    208: {"en": "Low temperature discharge protection", "de": "Niedrigtemperatur-Entladeschutz", "es": "Protección contra descarga a baja temperatura", "fr": "Protection de décharge aux basses températures", "it": "Low temperature discharge protection", "nl": "Lage-temperatuur ontlaadbeveiliging", "pl": "Ochrona przed rozładowaniem w niskiej temperaturze"},
-    209: {"en": "Battery port overvoltage", "de": "Überspannung am Akkuanschluss", "es": "Battery port overvoltage", "fr": "Surtension du port de la batterie", "it": "Battery port overvoltage", "nl": "Accupoort-overspanning", "pl": "Przepięcie na porcie akumulatora"},
-    210: {"en": "Battery port undervoltage", "de": "Unterspannung am Akkuanschluss", "es": "Battery port undervoltage", "fr": "Sous-tension du port de la batterie", "it": "Battery port undervoltage", "nl": "Accupoort-onderspanning", "pl": "Podnapięcie na porcie akumulatora"},
+    205: {"en": "MPPT-A input overvoltage"},
+    206: {"en": "MPPT-B input overvoltage"},
+    207: {"en": "MPPT-A input undervoltage"},
+    208: {"en": "MPPT-B input undervoltage"},
+    209: {"en": "PV1 no input"},
+    210: {"en": "PV2 no input"},
     211: {"en": "Longterm DC bus overvoltage", "de": "Langfristige Überspannung am DC-Bus", "es": "Longterm DC bus overvoltage", "fr": "Surtension à long terme du bus CC", "it": "Longterm DC bus overvoltage", "nl": "Langdurige DC-busoverspanning", "pl": "Długotrwałe przepięcie magistrali DC"},
     212: {"en": "Longterm DC bus undervoltage", "de": "Langfristige Unterspannung am DC-Bus", "es": "Longterm DC bus undervoltage", "fr": "Sous-tension à long terme du bus CC", "it": "Longterm DC bus undervoltage", "nl": "Langdurige DC-busonderspanning", "pl": "Długotrwałe podnapięcie magistrali DC"},
-    213: {"en": "PV1 no input", "de": "PV1 ohne Eingang", "es": "Sin entrada en el puerto FV1", "fr": "Aucune entrée PV1", "it": "PV1 no input", "nl": "Geen invoer voor PV1", "pl": "Brak wejścia PV1"},
-    214: {"en": "PV2 no input", "de": "PV2 ohne Eingang", "es": "Sin entrada en el puerto FV2", "fr": "Aucune entrée PV2", "it": "PV2 no input", "nl": "Geen invoer voor PV2", "pl": "Brak wejścia PV2"},
-    215: {"en": "Port 1 wiring abnormality", "de": "Anomalie in der Verkabelung von Anschluss 1", "es": "Anomalía en el cableado del puerto 1", "fr": "Anomalie de câblage du port 1", "it": "Port 1 wiring abnormality", "nl": "Poort 1 bedradingsafwijking", "pl": "Błąd okablowania portu 1"},
-    216: {"en": "Port 2 wiring abnormality", "de": "Anomalie in der Verkabelung von Anschluss 2", "es": "Anomalía en el cableado del puerto 2", "fr": "Anomalie de câblage du port 2", "it": "Port 2 wiring abnormality", "nl": "Poort 2 bedradingsafwijking", "pl": "Błąd okablowania portu 2"},
-    217: {"en": "PV1 input overvoltage", "de": "Eingangsüberspannung bei PV1", "es": "Sobretensión de entrada en FV1", "fr": "Surtension de l’entrée PV1", "it": "PV1 input overvoltage", "nl": "Overspanning PV1-ingang", "pl": "Nadnapięcie wejściowe PV1"},
-    218: {"en": "PV1 input undervoltage", "de": "Eingangsunterspannung bei PV1", "es": "Subtensión de entrada en FV1", "fr": "Sous-tension de l’entrée PV1", "it": "PV1 input undervoltage", "nl": "Onderspanning PV1-ingang", "pl": "Podnapięcie wejściowe PV1"},
+    213: {"en": "MPPT-A abnormal wiring (PV1/PV2)"},
+    214: {"en": "MPPT-B abnormal wiring (PV3/PV4)"},
+    215: {"en": "PV1 input overvoltage"},
+    216: {"en": "PV1 input undervoltage"},
+    217: {"en": "PV2 input overvoltage"},
+    218: {"en": "PV2 input undervoltage"},
+    # 219/220 duplicate 217/218's meaning per the official HMS-800/900/1000-2T
+    # manual (which stops at 218) — unresolved, no source found to disambiguate.
     219: {"en": "PV2 input overvoltage", "de": "Eingangsüberspannung bei PV2", "es": "Sobretensión de entrada en FV2", "fr": "Surtension de l’entrée PV2", "it": "PV2 input overvoltage", "nl": "Overspanning PV2-ingang", "pl": "Nadnapięcie wejściowe PV2"},
     220: {"en": "PV2 input undervoltage", "de": "Eingangsunterspannung bei PV2", "es": "Subtensión de entrada en FV2", "fr": "Sous-tension de l’entrée PV2", "it": "PV2 input undervoltage", "nl": "Onderspanning PV2-ingang", "pl": "Podnapięcie wejściowe PV2"},
     221: {"en": "MOS failure", "de": "MOS-Fehler", "es": "MOS failure", "fr": "Anomalie MOS", "it": "MOS failure", "nl": "MOS-storing", "pl": "Błąd MOS"},
@@ -284,6 +294,15 @@ _WARNING_MESSAGES: dict[int, dict[str, str]] = {
     8320: {"en": "Locked by remote control"},
     9000: {"en": "Microinverter is suspected of being stolen"},
 }
+
+
+def known_fault_names(lang: str = "en") -> list[str]:
+    """All fault/warning names decode_warning() can produce, alphabetically.
+    Used to populate the flow condition autocomplete — battery/BMS-specific
+    names are filtered out there for non-hybrid devices, which have no
+    battery attached."""
+    names = {entry.get(lang) or entry.get("en") for entry in _WARNING_MESSAGES.values()}
+    return sorted(n for n in names if n)
 
 
 def decode_warning(code: int, lang: str = "en") -> str:

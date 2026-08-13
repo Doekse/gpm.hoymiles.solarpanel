@@ -20,6 +20,34 @@
 - There is a ~20-minute window before sunrise where the app still polls and logs noise.
 - Small issue, but generates unnecessary log traffic.
 
+### Flow cards for fault/warning codes
+
+- The Deye app (`gpm.python.deye`) just got 3 flow cards built on top of its
+  equivalent fault table — same pattern makes sense here once someone has
+  time. Reference implementation there: `app.py` (`_register_flow_conditions`),
+  `drivers/deye/device.py` (`_fire_flow_triggers`), `lib/fault_codes.py`
+  (`known_fault_names`), and the 3 JSON files under
+  `.homeycompose/flow/{triggers,conditions}/`.
+  - **Trigger "Fault/warning detected"** — edge-triggered (fires once on the
+    OK → fault transition, not every poll), `description` token from
+    `decode_warning()`.
+  - **Condition "Fault/warning is active"** — simple boolean, `fault_description != "OK"`.
+  - **Condition "Warning is ..."** — `type: autocomplete` arg, listener
+    registered with `register_argument_autocomplete_listener()`. List
+    suggestions from `_WARNING_MESSAGES` (now in `lib/fault_codes.py`),
+    filtered by the already-selected `device` arg's model — this driver has
+    a "Hybrid inverter (battery storage)" model option
+    (`driver.compose.json:173`), so battery-only codes (70-78: charge/
+    discharge/voltage/temp/BMS alarms) should be hidden from the suggestion
+    list for non-hybrid/non-battery devices, same reasoning as the Deye side.
+  - Note: couldn't verify the exact Python callback signature for
+    `register_argument_autocomplete_listener()` against this project's
+    actual `homey` runtime binding (not inspectable locally, only found via
+    the official — JS-oriented — docs at
+    https://apps.developer.homey.app/the-basics/flow/arguments). The Deye
+    implementation is marked experimental in its changelog for the same
+    reason — test on a real device before assuming it works as coded.
+
 ### Warning number logging and `test_dtu.py`
 
 - [ ] Add `async_get_alarm_list()` to `test_dtu.py`.
