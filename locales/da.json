@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "hex-værdi",
     "enc_rand_hint": "Udfyldes normalt automatisk. Kun nødvendig for krypterede DTU'er.",
     "load_error": "Kunne ikke indlæse registrerede DTU'er.",
-    "panel_count_error": "Antallet af paneler skal være mellem 1 og 8 for hver enhed.",
+    "panel_count_error": "Antallet af paneler skal være mellem 1 og 32 for hver enhed.",
     "saving_status": "Gemmer registrerede enheder..."
   },
   "error": {

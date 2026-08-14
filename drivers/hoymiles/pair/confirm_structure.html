@@ -300,7 +300,7 @@
       var panelInput = document.createElement('input');
       panelInput.type = 'number';
       panelInput.min = '1';
-      panelInput.max = '8';
+      panelInput.max = '32';
       panelInput.id = 'panel-count-' + index;
       panelInput.value = device.panel_count || 2;
       var panelHint = document.createElement('div');
@@ -464,7 +464,7 @@
       var devices = readPayload();
 
       for (var i = 0; i < devices.length; i += 1) {
-        if (!devices[i].panel_count || devices[i].panel_count < 1 || devices[i].panel_count > 8) {
+        if (!devices[i].panel_count || devices[i].panel_count < 1 || devices[i].panel_count > 32) {
           errEl.textContent = t('panel_count_error');
           return;
         }

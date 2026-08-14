@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "wartość hex",
     "enc_rand_hint": "Zwykle uzupełniane automatycznie. Potrzebne tylko dla szyfrowanych DTU.",
     "load_error": "Nie udało się wczytać wykrytych DTU.",
-    "panel_count_error": "Liczba paneli musi być między 1 a 8 dla każdego urządzenia.",
+    "panel_count_error": "Liczba paneli musi być między 1 a 32 dla każdego urządzenia.",
     "saving_status": "Zapisywanie wykrytych urządzeń..."
   },
   "error": {

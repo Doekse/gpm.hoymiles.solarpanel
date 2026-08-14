@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "Hex-Wert",
     "enc_rand_hint": "Wird normalerweise automatisch ausgefüllt. Nur für verschlüsselte DTUs erforderlich.",
     "load_error": "Erkannte DTUs konnten nicht geladen werden.",
-    "panel_count_error": "Die Anzahl der Panels muss für jedes Gerät zwischen 1 und 8 liegen.",
+    "panel_count_error": "Die Anzahl der Panels muss für jedes Gerät zwischen 1 und 32 liegen.",
     "saving_status": "Erkannte Geräte werden gespeichert..."
   },
   "error": {

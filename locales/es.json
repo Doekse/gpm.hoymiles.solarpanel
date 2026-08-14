@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "valor hex",
     "enc_rand_hint": "Normalmente se completa automáticamente. Solo se necesita para DTUs cifrados.",
     "load_error": "No se pudieron cargar los DTUs detectados.",
-    "panel_count_error": "La cantidad de paneles debe estar entre 1 y 8 para cada dispositivo.",
+    "panel_count_error": "La cantidad de paneles debe estar entre 1 y 32 para cada dispositivo.",
     "saving_status": "Guardando dispositivos detectados..."
   },
   "error": {

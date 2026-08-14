@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "hex-verdi",
     "enc_rand_hint": "Fylles vanligvis ut automatisk. Trengs bare for krypterte DTU-er.",
     "load_error": "Kunne ikke laste inn oppdagede DTU-er.",
-    "panel_count_error": "Antall paneler må være mellom 1 og 8 for hver enhet.",
+    "panel_count_error": "Antall paneler må være mellom 1 og 32 for hver enhet.",
     "saving_status": "Lagrer oppdagede enheter..."
   },
   "error": {

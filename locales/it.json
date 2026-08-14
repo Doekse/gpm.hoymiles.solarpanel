@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "valore esadecimale",
     "enc_rand_hint": "Di solito viene compilato automaticamente. Necessario solo per DTU crittografati.",
     "load_error": "Impossibile caricare i DTU rilevati.",
-    "panel_count_error": "Il numero di pannelli deve essere compreso tra 1 e 8 per ogni dispositivo.",
+    "panel_count_error": "Il numero di pannelli deve essere compreso tra 1 e 32 per ogni dispositivo.",
     "saving_status": "Salvataggio dei dispositivi rilevati..."
   },
   "error": {

@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "hex value",
     "enc_rand_hint": "Usually filled automatically. Only needed for encrypted DTUs.",
     "load_error": "Failed to load detected DTUs.",
-    "panel_count_error": "Panel count must be between 1 and 8 for every device.",
+    "panel_count_error": "Panel count must be between 1 and 32 for every device.",
     "saving_status": "Saving detected devices..."
   },
   "error": {

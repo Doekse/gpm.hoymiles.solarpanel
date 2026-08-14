@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "valeur hexadécimale",
     "enc_rand_hint": "Habituellement renseigné automatiquement. Nécessaire uniquement pour les DTU chiffrés.",
     "load_error": "Impossible de charger les DTU détectés.",
-    "panel_count_error": "Le nombre de panneaux doit être compris entre 1 et 8 pour chaque appareil.",
+    "panel_count_error": "Le nombre de panneaux doit être compris entre 1 et 32 pour chaque appareil.",
     "saving_status": "Enregistrement des appareils détectés..."
   },
   "error": {

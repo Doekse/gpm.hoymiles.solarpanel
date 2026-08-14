@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "hexwaarde",
     "enc_rand_hint": "Wordt normaal automatisch ingevuld. Alleen nodig voor versleutelde DTU's.",
     "load_error": "Kan gedetecteerde DTU's niet laden.",
-    "panel_count_error": "Het aantal panelen moet voor elk apparaat tussen 1 en 8 liggen.",
+    "panel_count_error": "Het aantal panelen moet voor elk apparaat tussen 1 en 32 liggen.",
     "saving_status": "Gedetecteerde apparaten opslaan..."
   },
   "error": {

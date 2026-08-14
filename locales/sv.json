@@ -43,7 +43,7 @@
     "enc_rand_placeholder": "hexvärde",
     "enc_rand_hint": "Fylls vanligtvis i automatiskt. Behövs bara för krypterade DTU:er.",
     "load_error": "Det gick inte att läsa in upptäckta DTU:er.",
-    "panel_count_error": "Antalet paneler måste vara mellan 1 och 8 för varje enhet.",
+    "panel_count_error": "Antalet paneler måste vara mellan 1 och 32 för varje enhet.",
     "saving_status": "Sparar upptäckta enheter..."
   },
   "error": {
