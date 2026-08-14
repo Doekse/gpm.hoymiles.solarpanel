@@ -11,10 +11,11 @@ Connects directly to the DTU over your local network using the open-source [hoym
 | Device | Status |
 |--------|--------|
 | DTU-WLite | Supported |
+| DTU-Lite-S | Supported |
 | DTU-Pro | Supported |
 | DTU-Pro-S (encrypted) | Supported |
 
-HMS series microinverters connected via any of the above DTUs.
+HMS series microinverters connected via any of the above DTUs. Confirmed working: HMS-2000DW-4T.
 
 ---
 
@@ -28,6 +29,19 @@ HMS series microinverters connected via any of the above DTUs.
 - Hybrid/battery storage support (state of charge, active power)
 - Configurable polling interval (minimum 35 seconds)
 - Device availability tracking with error threshold
+- Fault/Alarm Detail — decodes the inverter's warning code into readable text using Hoymiles' official fault code table, in your Homey language where translated
+
+---
+
+## Flow cards
+
+Built on top of Fault/Alarm Detail:
+
+- **Fault/alarm detected** (trigger) — fires once when a new fault/alarm becomes active
+- **Fault/alarm is active** (condition)
+- **Fault is ...** (condition) — autocomplete list filtered to the selected device (battery/BMS fault names are hidden unless the device is set as hybrid in its settings)
+
+See [docs/sources.md](docs/sources.md) for where the fault code table comes from.
 
 ---
 
@@ -48,6 +62,14 @@ HMS series microinverters connected via any of the above DTUs.
 4. The app detects panel count, inverter type and encryption automatically
 
 > **Upgrading from a previous version?** Remove the existing device and add it again (re-pair). This version uses a new device ID format and will not recognise devices added by older versions.
+
+---
+
+## Tested hardware
+
+- Hoymiles HMS-2000DW-4T
+- Hoymiles DTU-Lite-S (6-panel setup)
+- Hoymiles DTU-Pro (firmware H09.01.02 / V00.07.02)
 
 ---
 
