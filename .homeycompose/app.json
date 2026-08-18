@@ -102,6 +102,8 @@
   },
   "source": "https://github.com/gpmachado/gpm.hoymiles.solarpanel",
   "homepage": "https://github.com/gpmachado/gpm.hoymiles.solarpanel",
+  "support": "https://github.com/gpmachado/gpm.hoymiles.solarpanel/issues",
+  "homeyCommunityTopicId": 158383,
   "bugs": {
     "url": "https://github.com/gpmachado/gpm.hoymiles.solarpanel/issues"
   },
