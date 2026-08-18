@@ -102,8 +102,9 @@
     "email": "g.machado@me.com"
   },
   "source": "https://github.com/gpmachado/gpm.hoymiles.solarpanel",
-  "homepage": "https://community.homey.app/t/app-pro-hoymiles-wi-fi-solar-panel",
-  "support": "https://community.homey.app/t/app-pro-hoymiles-wi-fi-solar-panel",
+  "homepage": "https://github.com/gpmachado/gpm.hoymiles.solarpanel",
+  "support": "https://community.homey.app/t/app-pro-hoymiles-wi-fi-solar-panel/158383",
+  "homeyCommunityTopicId": 158383,
   "bugs": {
     "url": "https://github.com/gpmachado/gpm.hoymiles.solarpanel/issues"
   },
