@@ -59,6 +59,12 @@
   "1.1.21": {
     "en": "Fixed a crash during encrypted DTU recovery when Homey fails to save refreshed DTU settings such as signal strength, firmware info, or encryption metadata. Polling now continues after unexpected polling errors instead of stopping silently."
   },
+  "1.1.25": {
+    "en": "EXPERIMENTAL, contributed and tested by a user (thank you!): added support for the DTU-W100 (10D3 serial family), which rejects the standard realtime-data command but works through the legacy one — detected automatically by serial prefix, no setting to configure. Includes a longer warm-up pause after sunrise and a longer \"no data\" backoff tuned for this DTU's slower responses, with the same automatic connection-rebuild safety net as every other DTU (just with more patience: 2 hours instead of 20 minutes). Also fixed a bug (unrelated to the W100) where changing the Polling Interval setting had no effect until something else triggered a restart."
+  },
+  "1.1.24": {
+    "en": "Fixed Lifetime Energy occasionally dropping and then jumping back up in the history — it's now rejected if fewer panels report in a poll than configured (the previous sum was incomplete, not wrong data from the device), and any other drop must repeat on the next poll before being accepted, so a one-off bad reading can't get stuck hiding real production increases from a genuinely lower value."
+  },
   "1.1.23": {
     "en": "Raised the Panel Count limit from 8 to 32 — installations with more than 8 panels on one DTU couldn't be paired correctly, and the automatic panel-count self-correction (which runs once at startup) silently failed to fix a wrong value above 8."
   },

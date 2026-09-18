@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from astral import LocationInfo
 from astral.sun import sun
@@ -20,7 +21,14 @@ _LOGGER = logging.getLogger(__name__)
 _INFORMATIONAL_WARN_MAX = 255
 _BACKOFF_NIGHT = 30 * 60   # seconds
 _BACKOFF_DAY   =  5 * 60   # seconds
+_BACKOFF_W100_NO_DATA = 30 * 60  # seconds
+_W100_MORNING_WARMUP = 30 * 60  # seconds
 _NO_DATA_REBUILD_AFTER = 20 * 60  # seconds
+# W100 (legacy a303 protocol) needs longer patience before a "no data" streak
+# means an actual connection problem rather than the hardware just being slow
+# — same rebuild safety net as every other DTU, just a longer fuse so it
+# doesn't fight the 30 min backoff above by rebuilding mid-wait.
+_W100_NO_DATA_REBUILD_AFTER = 2 * 60 * 60  # seconds
 
 # Diagnostic reports submitted from the Homey app only include the last ~100
 # lines of stdout. Logging every single poll (every 35-60 s) or every single
@@ -46,11 +54,14 @@ class HoymilesDevice(Device):
     _last_poll_ok_daily: float | None = None
     _last_poll_ok_date = None
     _last_poll_ok_warning: int | None = None
+    _last_lifetime_wh: float | None = None  # last meter_power (Wh) actually written
+    _pending_lower_wh: float | None = None  # unconfirmed lower reading, awaiting a second poll to agree
     _dtu_rebuilds: int = 0
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
     _had_fault: bool | None = None      # None = first poll, state not yet known
     _was_night: bool = False          # last poll's night/day state, for transition logging
+    _w100_morning_warmup_done: bool = False
     _last_heartbeat_at: float = 0.0   # monotonic time of the last routine log line
     _first_error_reason: str | None = None  # captured at the start of the current outage
 
@@ -83,8 +94,10 @@ class HoymilesDevice(Device):
     async def on_settings(self, old_settings, new_settings, changed_keys) -> None:
         if any(k in changed_keys for k in ("ip", "is_encrypted", "enc_rand")):
             await self._build_dtu()
-        if any(k in changed_keys for k in (
-            "polling_interval", "solar_latitude", "solar_longitude"
+        if "polling_interval" in changed_keys:
+            self._start_polling(new_settings.get("polling_interval"))
+        elif any(k in changed_keys for k in (
+            "solar_latitude", "solar_longitude"
         )):
             self._start_polling()
         if "showPvDetail" in changed_keys:
@@ -354,9 +367,19 @@ class HoymilesDevice(Device):
 
     # ── Polling ───────────────────────────────────────────────────────────────
 
-    def _start_polling(self) -> None:
+    def _start_polling(self, polling_interval: int | None = None) -> None:
+        """polling_interval, when given, is used as-is (the fresh value from
+        on_settings' new_settings — self.get_setting() can still return the
+        *previous* value at the moment on_settings fires, since Homey calls
+        this hook before persisting the change). When omitted (on_init, no
+        settings-change event to read from), falls back to self.get_setting().
+        A plain None default (not the module's _UNSET sentinel) — a real
+        polling_interval is never legitimately None when explicitly passed,
+        and identity-comparing against a module-level sentinel is fragile
+        across a dev-mode module reload, which is what broke this before."""
         self._stop_polling()
-        interval = max(35, int(self.get_setting("polling_interval") or 60))
+        raw_interval = polling_interval if polling_interval is not None else self.get_setting("polling_interval")
+        interval = max(35, int(raw_interval or 60))
         self._poll_task = asyncio.ensure_future(self._poll_loop(interval))
 
     def _stop_polling(self) -> None:
@@ -387,15 +410,107 @@ class HoymilesDevice(Device):
 
     # ── Standard polling (sgs / tgs / pv) ────────────────────────────────────
 
+    @staticmethod
+    def _normalize_legacy_real_data(data):
+        """Map the legacy a303 response to the RealDataNew shape used below."""
+        legacy_pv = list(data.pv_data or [])
+        if not legacy_pv:
+            return None
+
+        pv_data = [
+            SimpleNamespace(
+                serial_number=pv.pv_sn,
+                port_number=pv.pv_port,
+                power=pv.pv_power,
+                voltage=pv.pv_vol,
+                current=pv.pv_cur,
+                energy_total=pv.pv_energy_total,
+                energy_daily=pv.pv_energy,
+                error_code=pv.pv_fault_num,
+            )
+            for pv in legacy_pv
+        ]
+
+        # Grid fields occur only on one PV row per inverter. Aggregate those
+        # rows into the single-phase DTU values exposed by the Homey device.
+        grid_by_inverter = {}
+        for pv in legacy_pv:
+            if not (pv.grid_vol or pv.grid_freq or pv.grid_p or pv.grid_i):
+                continue
+            grid_by_inverter.setdefault(pv.pv_sn, pv)
+        grid_rows = list(grid_by_inverter.values())
+
+        def _average_nonzero(field: str) -> int:
+            values = [
+                int(getattr(row, field) or 0)
+                for row in grid_rows
+                if getattr(row, field) or 0
+            ]
+            return round(sum(values) / len(values)) if values else 0
+
+        warning_number = max(
+            (int(pv.pv_fault_num or 0) for pv in legacy_pv),
+            default=0,
+        )
+        sgs_data = [SimpleNamespace(
+            voltage=_average_nonzero("grid_vol"),
+            current=sum(int(row.grid_i or 0) for row in grid_rows),
+            frequency=_average_nonzero("grid_freq"),
+            temperature=max(
+                (int(row.pv_temp or 0) for row in grid_rows),
+                default=0,
+            ),
+            warning_number=warning_number,
+        )] if grid_rows else []
+
+        return SimpleNamespace(
+            device_serial_number=str(data.dtu_sn or ""),
+            dtu_power=sum(int(row.grid_p or 0) for row in grid_rows),
+            dtu_daily_energy=sum(int(pv.pv_energy or 0) for pv in legacy_pv),
+            pv_data=pv_data,
+            sgs_data=sgs_data,
+            tgs_data=[],
+        )
+
     async def _poll_standard(self) -> None:
         sun_times = self._get_sunrise_sunset()
+        # DTU-W100 serials in the 10D3 family reject a311 but provide full
+        # realtime data through the legacy a303 command.
+        legacy_w100 = (
+            str(self.get_setting("dtu_sn") or "")
+            .upper()
+            .startswith("10D3")
+        )
         if sun_times is not None and self._is_night_time_from(sun_times):
+            self._w100_morning_warmup_done = False
             self._first_no_data_at = None
             await self._apply_night_backoff(sun_times)
             return
 
+        if (
+            legacy_w100
+            and self._was_night
+            and not self._w100_morning_warmup_done
+        ):
+            self._w100_morning_warmup_done = True
+            self._first_no_data_at = None
+            self._backoff_until = time.monotonic() + _W100_MORNING_WARMUP
+            self.log(
+                f"Poll: W100 morning warm-up — pausing DTU requests for "
+                f"{_W100_MORNING_WARMUP // 60} min"
+            )
+            return
+
         try:
-            data = await self._dtu.async_get_real_data_new()
+            if legacy_w100:
+                legacy_data = await self._dtu.async_get_real_data()
+                data = (
+                    self._normalize_legacy_real_data(legacy_data)
+                    if legacy_data
+                    else None
+                )
+            else:
+                data = await self._dtu.async_get_real_data_new()
         except Exception as e:
             sun_times = self._get_sunrise_sunset()
             if sun_times is not None and self._is_night_time_from(sun_times):
@@ -444,17 +559,29 @@ class HoymilesDevice(Device):
                 "never" if self._last_poll_ok_at is None
                 else f"{(now - self._last_poll_ok_at) / 60:.0f} min ago"
             )
-            # Log immediately when the "no data" streak starts, then throttle —
-            # this repeats every poll (35-60 s) while the inverter sleeps, which
-            # would otherwise fill the diagnostic report's ~100-line budget fast.
-            if just_started or self._heartbeat_due():
-                self.log(
-                    f"Poll: no data — inverter sleeping, keeping last values "
-                    f"({no_data_for / 60:.0f} min, last_ok={last_ok}, "
-                    f"last_warn={self._last_poll_ok_warning}, "
-                    f"rebuilds={self._dtu_rebuilds})"
-                )
-            if no_data_for >= _NO_DATA_REBUILD_AFTER:
+            if legacy_w100:
+                self._backoff_until = now + _BACKOFF_W100_NO_DATA
+                if just_started or self._heartbeat_due():
+                    self.log(
+                        f"Poll: W100 returned metadata without PV data; "
+                        f"pausing DTU requests for "
+                        f"{_BACKOFF_W100_NO_DATA // 60} min "
+                        f"(last_ok={last_ok}, rebuilds={self._dtu_rebuilds})"
+                    )
+            else:
+                # Log immediately when the "no data" streak starts, then throttle —
+                # this repeats every poll (35-60 s) while the inverter sleeps, which
+                # would otherwise fill the diagnostic report's ~100-line budget fast.
+                if just_started or self._heartbeat_due():
+                    self.log(
+                        f"Poll: no data — inverter sleeping, keeping last values "
+                        f"({no_data_for / 60:.0f} min, last_ok={last_ok}, "
+                        f"last_warn={self._last_poll_ok_warning}, "
+                        f"rebuilds={self._dtu_rebuilds})"
+                    )
+
+            rebuild_after = _W100_NO_DATA_REBUILD_AFTER if legacy_w100 else _NO_DATA_REBUILD_AFTER
+            if no_data_for >= rebuild_after:
                 self.log(
                     f"Poll: no data persisted — rebuilding DTU connection "
                     f"(last_power={self._last_poll_ok_power}W "
@@ -522,8 +649,45 @@ class HoymilesDevice(Device):
         await self._set("measure_power",     power_w)
         await self._set("meter_power.today", today_kwh)
 
-        total_wh = sum(pv.energy_total or 0 for pv in pv_list)
-        await self._set("meter_power", total_wh / 1000)
+        # meter_power (lifetime) has no DTU-level field to fall back to — the
+        # protocol only exposes dtu_power/dtu_daily_energy at that level, not
+        # a cumulative total (confirmed against hoymiles_wifi's RealDataNew
+        # protobuf). So it's summed from pv_data alone, which makes it
+        # vulnerable to a poll where fewer panels report than configured: the
+        # sum would be incomplete, understating the true total. Skip the
+        # update entirely when that happens, instead of writing a short count.
+        if len(pv_list) < panel_count:
+            self.log(
+                f"meter_power: only {len(pv_list)}/{panel_count} panels reported — "
+                f"skipping update, keeping last known value"
+            )
+        else:
+            total_wh = sum(pv.energy_total or 0 for pv in pv_list)
+            if self._last_lifetime_wh is not None and total_wh < self._last_lifetime_wh - 10:
+                # Looks like a drop with a full panel count. Could be a
+                # one-off bad reading, or a genuine reset (device swapped/
+                # reconfigured). Require the same lower value to repeat on
+                # the next poll before accepting it — a single-poll glitch
+                # gets ignored, but a real reset is accepted quickly instead
+                # of silently hiding whatever this device produces from here
+                # on (comparing forever against a stale held-over value
+                # would swallow real production increments until the true
+                # total organically climbed back past it).
+                if self._pending_lower_wh is not None and abs(total_wh - self._pending_lower_wh) < 10:
+                    self.log(f"meter_power: drop to {total_wh}Wh confirmed on second poll — accepting as new baseline")
+                    self._last_lifetime_wh = total_wh
+                    self._pending_lower_wh = None
+                    await self._set("meter_power", total_wh / 1000)
+                else:
+                    self.log(
+                        f"meter_power: implausible drop ({self._last_lifetime_wh}Wh -> {total_wh}Wh) — "
+                        f"skipping, keeping last known value pending confirmation"
+                    )
+                    self._pending_lower_wh = total_wh
+            else:
+                self._last_lifetime_wh = total_wh
+                self._pending_lower_wh = None
+                await self._set("meter_power", total_wh / 1000)
 
         # Each block below is independently guarded: an unexpected field on one
         # DTU response (e.g. an attribute missing after a library update) must
@@ -570,33 +734,33 @@ class HoymilesDevice(Device):
             return (data.sgs_data[0].warning_number or 0)
         return 0
 
+    async def _apply_shared_electrical_caps(self, source, warn_raw: int) -> None:
+        """Frequency, temperature, alarm/fault — identical fields on sgs/tgs,
+        just factored out so single- and three-phase don't repeat them."""
+        await self._set("measure_frequency",   (source.frequency or 0) / 100)
+        await self._set("measure_temperature", self._decode_temp(source.temperature or 0))
+        await self._set("alarm_generic",       warn_raw > _INFORMATIONAL_WARN_MAX)
+        await self._set("fault_description",   _decode_warning(warn_raw, self._lang()))
+
     async def _poll_single_phase(self, data) -> None:
         sgs = (data.sgs_data or [None])[0]
         if not sgs:
             return
-        warn_raw = sgs.warning_number or 0
-        await self._set("measure_voltage",     (sgs.voltage   or 0) / 10)
-        await self._set("measure_current",     (sgs.current   or 0) / 100)
-        await self._set("measure_frequency",   (sgs.frequency or 0) / 100)
-        await self._set("measure_temperature", self._decode_temp(sgs.temperature or 0))
-        await self._set("alarm_generic",       warn_raw > _INFORMATIONAL_WARN_MAX)
-        await self._set("fault_description",   _decode_warning(warn_raw, self._lang()))
+        await self._set("measure_voltage", (sgs.voltage or 0) / 10)
+        await self._set("measure_current", (sgs.current or 0) / 100)
+        await self._apply_shared_electrical_caps(sgs, sgs.warning_number or 0)
 
     async def _poll_three_phase(self, data) -> None:
         tgs = (data.tgs_data or [None])[0]
         if not tgs:
             return
-        warn_raw = tgs.warning_number or 0
         await self._set("measure_voltage.phase_a", (tgs.voltage_phase_A or 0) / 10)
         await self._set("measure_voltage.phase_b", (tgs.voltage_phase_B or 0) / 10)
         await self._set("measure_voltage.phase_c", (tgs.voltage_phase_C or 0) / 10)
         await self._set("measure_current.phase_a", (tgs.current_phase_A or 0) / 100)
         await self._set("measure_current.phase_b", (tgs.current_phase_B or 0) / 100)
         await self._set("measure_current.phase_c", (tgs.current_phase_C or 0) / 100)
-        await self._set("measure_frequency",       (tgs.frequency       or 0) / 100)
-        await self._set("measure_temperature",     self._decode_temp(tgs.temperature or 0))
-        await self._set("alarm_generic",           warn_raw > _INFORMATIONAL_WARN_MAX)
-        await self._set("fault_description",       _decode_warning(warn_raw, self._lang()))
+        await self._apply_shared_electrical_caps(tgs, tgs.warning_number or 0)
 
     # ── Hybrid polling (energy storage) ──────────────────────────────────────
 
