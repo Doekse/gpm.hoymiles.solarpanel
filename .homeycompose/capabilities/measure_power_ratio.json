@@ -1,0 +1,23 @@
+{
+  "type": "number",
+  "title": {
+    "en": "Power Ratio",
+    "nl": "Vermogensratio",
+    "de": "Leistungsanteil",
+    "fr": "Taux de Puissance",
+    "it": "Rapporto di Potenza",
+    "sv": "Effektandel",
+    "no": "Effektandel",
+    "es": "Ratio de Potencia",
+    "da": "Effektandel",
+    "pl": "Współczynnik Mocy"
+  },
+  "units": { "en": "%" },
+  "decimals": 0,
+  "min": 0,
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "icon": "/assets/capabilities/power_ratio.svg"
+}

@@ -592,6 +592,22 @@
           "value": true
         },
         {
+          "id": "nominal_power",
+          "type": "number",
+          "label": {
+            "en": "Nominal power (W)"
+          },
+          "hint": {
+            "en": "Total inverter AC rating, e.g. 1600 for one HMS-1600. When set, adds a Power Ratio (%) tile: current power ÷ nominal power — e.g. for Flows like \"production below 10%\". 0 = off. Takes effect immediately, no re-pairing needed."
+          },
+          "value": 0,
+          "min": 0,
+          "max": 100000,
+          "units": {
+            "en": "W"
+          }
+        },
+        {
           "id": "is_hybrid",
           "type": "checkbox",
           "label": {
@@ -842,6 +858,31 @@
       "uiComponent": "sensor",
       "insights": false,
       "icon": "/assets/capabilities/fault_description.svg"
+    },
+    "measure_power_ratio": {
+      "type": "number",
+      "title": {
+        "en": "Power Ratio",
+        "nl": "Vermogensratio",
+        "de": "Leistungsanteil",
+        "fr": "Taux de Puissance",
+        "it": "Rapporto di Potenza",
+        "sv": "Effektandel",
+        "no": "Effektandel",
+        "es": "Ratio de Potencia",
+        "da": "Effektandel",
+        "pl": "Współczynnik Mocy"
+      },
+      "units": {
+        "en": "%"
+      },
+      "decimals": 0,
+      "min": 0,
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "icon": "/assets/capabilities/power_ratio.svg"
     }
   }
 }

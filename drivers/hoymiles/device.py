@@ -42,6 +42,7 @@ _HEARTBEAT_INTERVAL_S = 15 * 60
 _UNSET = object()  # sentinel distinguishing "no value passed" from an explicit None
 
 RESTORE_BUTTON_CAP = "button.restore_capabilities"
+POWER_RATIO_CAP = "measure_power_ratio"
 
 
 class HoymilesDevice(Device):
@@ -95,6 +96,7 @@ class HoymilesDevice(Device):
         self._start_polling()
         await self._sync_detail_caps("showPvDetail", self._pv_detail_caps())
         await self._sync_detail_caps("showAcDetail", self._ac_detail_caps())
+        await self._sync_power_ratio_cap()
 
     async def on_settings(self, old_settings, new_settings, changed_keys) -> None:
         if any(k in changed_keys for k in ("ip", "is_encrypted", "enc_rand")):
@@ -110,6 +112,8 @@ class HoymilesDevice(Device):
             await self._sync_detail_caps("showPvDetail", self._pv_detail_caps(), new_settings.get("showPvDetail"))
         if "showAcDetail" in changed_keys:
             await self._sync_detail_caps("showAcDetail", self._ac_detail_caps(), new_settings.get("showAcDetail"))
+        if "nominal_power" in changed_keys:
+            await self._sync_power_ratio_cap(new_settings.get("nominal_power"))
         if any(k in changed_keys for k in ("panel_count", "three_phase")):
             # New values passed in: get_setting() still returns the old ones here.
             await self.restore_capabilities(new_settings)
@@ -174,6 +178,27 @@ class HoymilesDevice(Device):
                     self.log(f"Removed detail capability {cap} ({setting_id})")
             except Exception as e:
                 _LOGGER.warning(f"Sync detail capability {cap} ({setting_id}) failed: {e}")
+
+    async def _sync_power_ratio_cap(self, value=_UNSET) -> None:
+        """Power Ratio (%) tile exists only while nominal_power is set (> 0)."""
+        nominal = self.get_setting("nominal_power") if value is _UNSET else value
+        show = (nominal or 0) > 0
+        try:
+            if show and not self.has_capability(POWER_RATIO_CAP):
+                await self.add_capability(POWER_RATIO_CAP)
+                self.log(f"Added {POWER_RATIO_CAP} (nominal_power={nominal}W)")
+            elif not show and self.has_capability(POWER_RATIO_CAP):
+                await self.remove_capability(POWER_RATIO_CAP)
+                self.log(f"Removed {POWER_RATIO_CAP} (nominal_power off)")
+        except Exception as e:
+            _LOGGER.warning(f"Sync {POWER_RATIO_CAP} failed: {e}")
+
+    async def _set_power(self, power_w: float) -> None:
+        """measure_power plus the derived Power Ratio (%), when enabled."""
+        await self._set("measure_power", power_w)
+        nominal = self._get_float_setting("nominal_power") or 0
+        if nominal > 0 and self.has_capability(POWER_RATIO_CAP):
+            await self._set(POWER_RATIO_CAP, round(power_w / nominal * 100))
 
     async def on_deleted(self) -> None:
         self._stop_polling()
@@ -726,7 +751,7 @@ class HoymilesDevice(Device):
         self._last_poll_ok_daily = round(today_kwh, 3)
         self._last_poll_ok_date = today_date
         self._last_poll_ok_warning = warn_raw
-        await self._set("measure_power",     power_w)
+        await self._set_power(power_w)
         await self._set("meter_power.today", today_kwh)
 
         # meter_power (lifetime) has no DTU-level field to fall back to — the
@@ -901,7 +926,7 @@ class HoymilesDevice(Device):
 
         self._consecutive_errors = 0
         await self.set_available()
-        await self._set("measure_power", total_power)
+        await self._set_power(total_power)
         # Same drop guard as standard polling: a missing inverter would understate the total.
         if responses == len(inverter_sns) and (
             self._last_lifetime_wh is None or total_wh >= self._last_lifetime_wh
@@ -1031,7 +1056,7 @@ class HoymilesDevice(Device):
         panel_count = int(self.get_setting("panel_count") or 0)
         three_phase = bool(self.get_setting("three_phase"))
 
-        await self._set("measure_power",     0)
+        await self._set_power(0)
         await self._set("alarm_generic",     False)
         await self._set("measure_frequency", 0)
         await self._set("measure_temperature", 0)

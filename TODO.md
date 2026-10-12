@@ -9,12 +9,6 @@
 - Would give grid import/export in Homey Energy.
 - Needs a user with a meter to test.
 
-### Power ratio per device
-
-- Add a `nominal_power` (W) setting in `driver.compose.json`.
-- Add a `measure_power_ratio` (%) capability calculated on each poll: `(solar / nominal_power) * 100`.
-- Useful for flows: e.g. "if production < 10% of nominal capacity → action".
-
 ### `test_dtu.py`
 
 - Add `async_get_alarm_list()` to the diagnostic script.
@@ -36,5 +30,6 @@
 
 ## Done
 
+- Power ratio: `nominal_power` setting + `measure_power_ratio` (%) capability, added/removed with the setting.
 - Fault/warning flow cards: trigger `fault_detected`, conditions `has_active_fault` and `fault_is` (`9927fcb`).
 - Warning code table: official Hoymiles table, 264 codes, in `lib/fault_codes.py`.

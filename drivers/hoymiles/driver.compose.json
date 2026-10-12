@@ -196,6 +196,13 @@
       "value": true
     },
     {
+      "id": "nominal_power",
+      "type": "number",
+      "label": { "en": "Nominal power (W)" },
+      "hint": { "en": "Total inverter AC rating, e.g. 1600 for one HMS-1600. When set, adds a Power Ratio (%) tile: current power ÷ nominal power — e.g. for Flows like \"production below 10%\". 0 = off. Takes effect immediately, no re-pairing needed." },
+      "value": 0, "min": 0, "max": 100000, "units": { "en": "W" }
+    },
+    {
       "id": "is_hybrid",
       "type": "checkbox",
       "label": {

@@ -238,3 +238,19 @@ nd._last_poll_ok_date = datetime.now(timezone.utc).date()
 asyncio.run(nd._apply_night_backoff((5.0, 20.0)))
 assert nd._last_poll_ok_date is None
 print("night/legacy checks OK")
+
+
+# Power ratio: tile follows nominal_power; value = power / nominal.
+class P(R):
+    async def remove_capability(self, c):
+        self.caps.discard(c)
+
+
+p = P({"nominal_power": 1600}, ["measure_power"])
+asyncio.run(p._sync_power_ratio_cap())
+assert "measure_power_ratio" in p.caps
+asyncio.run(p._set_power(400.0))
+assert p.vals["measure_power"] == 400.0 and p.vals["measure_power_ratio"] == 25, p.vals
+asyncio.run(p._sync_power_ratio_cap(0))  # on_settings passes the new value
+assert "measure_power_ratio" not in p.caps
+print("power ratio checks OK")
