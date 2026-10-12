@@ -2,19 +2,11 @@
 
 ## Open
 
-### Widget PV Overview
-
-- Per-device widget: current power, daily/total production, PV1–PVn comparison, SOC when available.
-- Show only existing capabilities, all 10 locales, dark/light mode, pause updates when off-screen.
-- Update the changelog only after it is validated on Homey.
-- The Deye "Energy Summary" widget (`gpm.deye.solarpanel.tcp/widgets/energy-summary`) is not a fit yet:
-  without grid/load data it would only show solar power. Revisit after meter support (below).
-
 ### Energy meter support (`meter_data`)
 
 - DTU-Pro with a Hoymiles meter (e.g. DTSU666) reports grid power per phase/total, import/export energy,
   voltage, current and power factor. The HA hoymiles_wifi integration already reads these (read-only).
-- Would give grid import/export in Homey Energy and make an energy-flow widget worthwhile.
+- Would give grid import/export in Homey Energy.
 - Needs a user with a meter to test.
 
 ### Power ratio per device
@@ -29,6 +21,8 @@
 
 ## Decisions (don't redo)
 
+- **No widget (2026-10-12)** — standard DTUs only have solar data, so a summary widget would repeat the
+  device tile. The Deye "Energy Summary" widget was considered and left out.
 - **Read-only by design** — no power limit / curtailment. Users who need to change inverter settings use the
   official S-Miles app.
 - **"Lifetime Energy" title kept as-is (2026-08-24)** — SolarEdge's official HA wording; naming varies by
