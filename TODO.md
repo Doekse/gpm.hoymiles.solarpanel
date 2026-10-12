@@ -1,10 +1,21 @@
 # TODO
 
-- [ ] **Widget PV Overview** — create a per-device widget showing current power, daily/total production, dynamic PV1-PV4 comparison, and SOC when available. Show only existing capabilities, support all 10 locales, dark/light mode, and pause updates when off-screen. Update the changelog only after the widget is implemented and validated on Homey.
+## Open
 
-- [x] **"Lifetime Energy" title — decided to keep as-is (2026-08-24)**. Investigated further: "Lifetime Energy" isn't wrong or non-standard — it's SolarEdge's own official HA integration terminology. The apparent inconsistency is only against this project's own two apps (Deye says "Total Production", 9/10 Hoymiles locales already say "Total X") and against Deye's specific source (ha-solarman literally names it "Total Production"), not against any universal convention — naming varies by vendor (SolarEdge: "Lifetime Energy"; Enphase/Fronius/Growatt: usually "Total Energy"). User decided not worth unifying. If revisited: change the "en" string in `driver.py` and add an on_init re-apply of the title (mirroring the `fault_description` icon re-apply at `device.py:180-185`) so already-paired devices pick it up without re-pairing.
+### Widget PV Overview
 
-## gpm.hoymiles.solarpanel backlog
+- Per-device widget: current power, daily/total production, PV1–PVn comparison, SOC when available.
+- Show only existing capabilities, all 10 locales, dark/light mode, pause updates when off-screen.
+- Update the changelog only after it is validated on Homey.
+- The Deye "Energy Summary" widget (`gpm.deye.solarpanel.tcp/widgets/energy-summary`) is not a fit yet:
+  without grid/load data it would only show solar power. Revisit after meter support (below).
+
+### Energy meter support (`meter_data`)
+
+- DTU-Pro with a Hoymiles meter (e.g. DTSU666) reports grid power per phase/total, import/export energy,
+  voltage, current and power factor. The HA hoymiles_wifi integration already reads these (read-only).
+- Would give grid import/export in Homey Energy and make an energy-flow widget worthwhile.
+- Needs a user with a meter to test.
 
 ### Power ratio per device
 
@@ -12,59 +23,24 @@
 - Add a `measure_power_ratio` (%) capability calculated on each poll: `(solar / nominal_power) * 100`.
 - Useful for flows: e.g. "if production < 10% of nominal capacity → action".
 
-### DTU rebuild only on exception, not on no-data
+### `test_dtu.py`
 
-- The current 20-minute no-data rebuild can fire before sunrise unnecessarily.
-- Rebuild should be triggered only on actual exceptions, not when the DTU simply returns `None` (inverter sleeping).
+- Add `async_get_alarm_list()` to the diagnostic script.
 
-### Night backoff ends before sunrise
+## Decisions (don't redo)
 
-- There is a ~20-minute window before sunrise where the app still polls and logs noise.
-- Small issue, but generates unnecessary log traffic.
+- **Read-only by design** — no power limit / curtailment. Users who need to change inverter settings use the
+  official S-Miles app.
+- **"Lifetime Energy" title kept as-is (2026-08-24)** — SolarEdge's official HA wording; naming varies by
+  vendor. If revisited: change the "en" string in `driver.py` and re-apply the title in on_init so paired
+  devices pick it up.
+- **No-data DTU rebuild stays** — the 20-min no-data rebuild also refreshes `enc_rand`, which is what recovers
+  DTU WLite-S / Pro-S after the night (the old "restart the app every morning" problem). Rebuilding only on
+  exceptions would bring that back.
+- **Pre-sunrise polling** — the 30-min buffer before sunrise is intentional; routine log lines are throttled
+  (15-min heartbeat), so the noise is already handled.
 
-### Flow cards for fault/warning codes
+## Done
 
-- The Deye app (`gpm.python.deye`) just got 3 flow cards built on top of its
-  equivalent fault table — same pattern makes sense here once someone has
-  time. Reference implementation there: `app.py` (`_register_flow_conditions`),
-  `drivers/deye/device.py` (`_fire_flow_triggers`), `lib/fault_codes.py`
-  (`known_fault_names`), and the 3 JSON files under
-  `.homeycompose/flow/{triggers,conditions}/`.
-  - **Trigger "Fault/warning detected"** — edge-triggered (fires once on the
-    OK → fault transition, not every poll), `description` token from
-    `decode_warning()`.
-  - **Condition "Fault/warning is active"** — simple boolean, `fault_description != "OK"`.
-  - **Condition "Warning is ..."** — `type: autocomplete` arg, listener
-    registered with `register_argument_autocomplete_listener()`. List
-    suggestions from `_WARNING_MESSAGES` (now in `lib/fault_codes.py`),
-    filtered by the already-selected `device` arg's model — this driver has
-    a "Hybrid inverter (battery storage)" model option
-    (`driver.compose.json:173`), so battery-only codes (70-78: charge/
-    discharge/voltage/temp/BMS alarms) should be hidden from the suggestion
-    list for non-hybrid/non-battery devices, same reasoning as the Deye side.
-  - Note: couldn't verify the exact Python callback signature for
-    `register_argument_autocomplete_listener()` against this project's
-    actual `homey` runtime binding (not inspectable locally, only found via
-    the official — JS-oriented — docs at
-    https://apps.developer.homey.app/the-basics/flow/arguments). The Deye
-    implementation is marked experimental in its changelog for the same
-    reason — test on a real device before assuming it works as coded.
-
-### Warning number logging and `test_dtu.py`
-
-- [ ] Add `async_get_alarm_list()` to `test_dtu.py`.
-- [ ] Document known warning codes from OpenDTU / S-Miles Installer `warn_code.json`:
-
-  | Code | Description |
-  |------|-------------|
-  | 11   | Grid voltage surge |
-  | 12   | Grid voltage sharp drop |
-  | 13   | Grid frequency mutation |
-  | 14   | Grid phase mutation |
-  | 15   | Grid transient fluctuation |
-  | 36   | INV overvoltage or overcurrent |
-  | 46   | FB overvoltage |
-  | 47   | FB overcurrent |
-  | 71   | Grid overvoltage load reduction (VW) |
-  | 72   | Grid over-frequency load reduction (FW) |
-  | 73   | Over-temperature load reduction (TW) |
+- Fault/warning flow cards: trigger `fault_detected`, conditions `has_active_fault` and `fault_is` (`9927fcb`).
+- Warning code table: official Hoymiles table, 264 codes, in `lib/fault_codes.py`.
