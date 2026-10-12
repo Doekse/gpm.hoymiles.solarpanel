@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "gpm.hoymiles.solarpanel",
-  "version": "1.1.25",
+  "version": "1.1.26",
   "compatibility": ">=13.0.0",
   "sdk": 3,
   "runtime": "python",
@@ -385,6 +385,35 @@
       },
       "class": "solarpanel",
       "capabilities": [],
+      "capabilitiesOptions": {
+        "button.restore_capabilities": {
+          "maintenanceAction": true,
+          "title": {
+            "en": "Restore capabilities",
+            "nl": "Mogelijkheden herstellen",
+            "de": "Funktionen wiederherstellen",
+            "fr": "Restaurer les capacités",
+            "it": "Ripristina funzionalità",
+            "sv": "Återställ funktioner",
+            "no": "Gjenopprett funksjoner",
+            "es": "Restaurar capacidades",
+            "da": "Gendan funktioner",
+            "pl": "Przywróć funkcje"
+          },
+          "desc": {
+            "en": "Re-adds any missing values (e.g. panel tiles after changing Panel Count) with their correct names. Only adds — never removes anything; Flows and Insights are kept. No re-pairing needed.",
+            "nl": "Voegt ontbrekende waarden opnieuw toe (bijv. paneeltegels na het wijzigen van het aantal panelen) met de juiste namen. Voegt alleen toe — verwijdert nooit iets; Flows en Insights blijven behouden.",
+            "de": "Fügt fehlende Werte (z. B. Panel-Kacheln nach Änderung der Panelanzahl) mit den richtigen Namen wieder hinzu. Fügt nur hinzu — entfernt nie etwas; Flows und Insights bleiben erhalten.",
+            "fr": "Rajoute les valeurs manquantes (p. ex. tuiles de panneaux après modification du nombre de panneaux) avec leurs bons noms. Ajoute uniquement — ne supprime jamais rien ; Flows et Insights sont conservés.",
+            "it": "Aggiunge di nuovo i valori mancanti (es. riquadri dei pannelli dopo aver cambiato il numero di pannelli) con i nomi corretti. Aggiunge soltanto — non rimuove mai nulla; Flow e Insights vengono mantenuti.",
+            "sv": "Lägger tillbaka saknade värden (t.ex. panelrutor efter ändrat antal paneler) med rätt namn. Lägger bara till — tar aldrig bort något; Flows och Insights behålls.",
+            "no": "Legger til manglende verdier på nytt (f.eks. panelfliser etter endret antall paneler) med riktige navn. Legger bare til — fjerner aldri noe; Flows og Insights beholdes.",
+            "es": "Vuelve a añadir los valores que faltan (p. ej. mosaicos de paneles tras cambiar el número de paneles) con sus nombres correctos. Solo añade — nunca elimina nada; se conservan los Flows e Insights.",
+            "da": "Tilføjer manglende værdier igen (f.eks. panelfliser efter ændret antal paneler) med de rigtige navne. Tilføjer kun — fjerner aldrig noget; Flows og Insights bevares.",
+            "pl": "Ponownie dodaje brakujące wartości (np. kafelki paneli po zmianie liczby paneli) z poprawnymi nazwami. Tylko dodaje — nigdy nic nie usuwa; Flows i Insights są zachowane."
+          }
+        }
+      },
       "energy": {
         "meterPowerExportedCapability": "meter_power"
       },

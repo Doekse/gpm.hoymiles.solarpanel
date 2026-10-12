@@ -154,8 +154,8 @@ async def _discover_dtus(timeout: float = 1.5) -> list[str]:
 
 def _build_capabilities(panel_count: int, three_phase: bool, is_hybrid: bool) -> list:
     if is_hybrid:
+        # No daily energy field in the energy-storage data, so no meter_power.today.
         return [
-            "meter_power.today",
             "measure_power",
             "meter_power",
             "measure_battery",
@@ -336,6 +336,10 @@ class HoymilesDriver(Driver):
                                 ]
                         except Exception:
                             pass
+                        if not inverter_sns:
+                            # Without inverter serials the device could never be polled.
+                            self.log(f"DTU {ip} — hybrid but inverter registry unavailable")
+                            return None
                 except Exception:
                     pass
 

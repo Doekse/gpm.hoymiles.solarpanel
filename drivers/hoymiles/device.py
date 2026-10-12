@@ -11,7 +11,9 @@ from astral import LocationInfo
 from astral.sun import sun
 
 from app.app import DEBUG_LOG as _DEBUG_LOG
-from app.drivers.hoymiles.driver import capability_title, _ASSETS
+from app.drivers.hoymiles.driver import (
+    capability_title, _ASSETS, _build_capabilities, _build_capabilities_options,
+)
 from app.lib.fault_codes import decode_warning as _decode_warning
 from homey.device import Device
 from hoymiles_wifi.dtu import DTU
@@ -40,6 +42,8 @@ _HEARTBEAT_INTERVAL_S = 15 * 60
 
 _UNSET = object()  # sentinel distinguishing "no value passed" from an explicit None
 
+RESTORE_BUTTON_CAP = "button.restore_capabilities"
+
 
 class HoymilesDevice(Device):
 
@@ -64,6 +68,7 @@ class HoymilesDevice(Device):
     _w100_morning_warmup_done: bool = False
     _last_heartbeat_at: float = 0.0   # monotonic time of the last routine log line
     _first_error_reason: str | None = None  # captured at the start of the current outage
+    _last_pv_count: int = 0           # panels in the last good poll — used by restore_capabilities
 
     def _heartbeat_due(self) -> bool:
         """Throttle routine (non-transition) log lines to _HEARTBEAT_INTERVAL_S apart."""
@@ -80,6 +85,7 @@ class HoymilesDevice(Device):
         await self._build_dtu()
         await self._refresh_info()
         await self._ensure_structural_caps()
+        await self._ensure_restore_button()
         try:
             # Best-effort — a bad first poll must not block on_init() from
             # completing, or the device would never start its recurring
@@ -104,6 +110,9 @@ class HoymilesDevice(Device):
             await self._sync_detail_caps("showPvDetail", self._pv_detail_caps(), new_settings.get("showPvDetail"))
         if "showAcDetail" in changed_keys:
             await self._sync_detail_caps("showAcDetail", self._ac_detail_caps(), new_settings.get("showAcDetail"))
+        if any(k in changed_keys for k in ("panel_count", "three_phase")):
+            # New values passed in: get_setting() still returns the old ones here.
+            await self.restore_capabilities(new_settings)
 
     def _pv_detail_caps(self) -> dict[str, tuple[str, dict]]:
         """{capability_id: (title_key, title_kwargs)} for per-panel Voltage/Current."""
@@ -177,6 +186,12 @@ class HoymilesDevice(Device):
         across multiple inverter_sns, so there's no single code to decode.
         """
         if bool(self.get_setting("is_hybrid")):
+            # Paired before 1.1.26: this tile never had a value on hybrids.
+            if self.has_capability("meter_power.today"):
+                try:
+                    await self.remove_capability("meter_power.today")
+                except Exception as e:
+                    _LOGGER.warning(f"Could not remove meter_power.today: {e}")
             return
         if not self.has_capability("fault_description"):
             try:
@@ -196,6 +211,68 @@ class HoymilesDevice(Device):
             )
         except Exception as e:
             _LOGGER.warning(f"Set icon for fault_description failed: {e}")
+
+    async def _ensure_restore_button(self) -> None:
+        """Maintenance action (device settings → Maintenance). Its options
+        (maintenanceAction, title) come from driver.compose.json."""
+        try:
+            if not self.has_capability(RESTORE_BUTTON_CAP):
+                await self.add_capability(RESTORE_BUTTON_CAP)
+            self.register_capability_listener(RESTORE_BUTTON_CAP, self._on_restore_button)
+        except Exception as e:
+            _LOGGER.warning(f"Restore button setup failed: {e}")
+
+    async def _on_restore_button(self, value, **kwargs) -> None:
+        await self.restore_capabilities()
+
+    async def restore_capabilities(self, settings: dict | None = None) -> list[str]:
+        """Re-add every capability pairing would create for this device's
+        panel_count / three_phase / is_hybrid — same device, so Flows and
+        Insights are kept. Add only, never removes. Respects showPvDetail /
+        showAcDetail. `settings` overrides get_setting() (on_settings passes
+        the new values, which get_setting() doesn't return yet)."""
+        settings = settings or {}
+
+        def _get(key):
+            return settings[key] if key in settings else self.get_setting(key)
+
+        panel_count = int(_get("panel_count") or 0)
+        three_phase = bool(_get("three_phase"))
+        is_hybrid   = bool(_get("is_hybrid"))
+
+        if not is_hybrid and self._last_pv_count > panel_count:
+            panel_count = self._last_pv_count
+            await self.set_settings({"panel_count": panel_count})
+
+        caps = _build_capabilities(panel_count, three_phase, is_hybrid)
+        opts = _build_capabilities_options(panel_count, three_phase, is_hybrid)
+        hidden: set[str] = set()
+        if _get("showPvDetail") is False:
+            hidden |= {c for c in caps if c.startswith(("measure_voltage.pv", "measure_current.pv"))}
+        if _get("showAcDetail") is False:
+            hidden |= {c for c in caps if c in ("measure_voltage", "measure_current") or ".phase_" in c}
+
+        added: list[str] = []
+        for cap in caps:
+            if cap in hidden or self.has_capability(cap):
+                continue
+            try:
+                await self.add_capability(cap)
+                added.append(cap)
+            except Exception as e:
+                _LOGGER.warning(f"Restore: add {cap} failed: {e}")
+                continue
+            if cap in opts:
+                try:
+                    await self.set_capability_options(cap, opts[cap])
+                except Exception as e:
+                    _LOGGER.warning(f"Restore: set options for {cap} failed: {e}")
+
+        self.log(
+            f"Restore capabilities (panels={panel_count} 3ph={three_phase} "
+            f"hybrid={is_hybrid}): added {added or 'nothing'}"
+        )
+        return added
 
     # ── DTU instance ──────────────────────────────────────────────────────────
 
@@ -341,7 +418,9 @@ class HoymilesDevice(Device):
             app_info = await self._dtu.async_app_information_data()
             if app_info:
                 pv_num = int(app_info.pv_number or 0)
-                if pv_num > 0 and int(self.get_setting("panel_count") or 0) != pv_num:
+                # Only raise: pairing may have stored more panels than pv_number
+                # (it uses max(pv_number, live PV count)); lowering would freeze tiles.
+                if pv_num > int(self.get_setting("panel_count") or 0):
                     await self.set_settings({"panel_count": pv_num})
                 if app_info.dtu_info:
                     di = app_info.dtu_info
@@ -617,6 +696,7 @@ class HoymilesDevice(Device):
         three_phase = bool(self.get_setting("three_phase"))
 
         pv_list = data.pv_data or []
+        self._last_pv_count = len(pv_list)
         # Some DTUs (e.g. DTU-WLite-S with HMS-1600-4T) report dtu_power and
         # dtu_daily_energy as 0 even when individual PV data is correct.
         # Fall back to summing per-PV values so the main card always shows data.
@@ -782,8 +862,8 @@ class HoymilesDevice(Device):
             return
 
         total_power = 0.0
-        total_soc   = None
-        any_alarm   = False
+        total_wh    = 0.0
+        socs: list[int] = []
         responses   = 0
 
         for inv_sn in inverter_sns:
@@ -804,16 +884,14 @@ class HoymilesDevice(Device):
 
             responses += 1
 
-            if storage.production:
-                total_power += (storage.production.active_power or 0) / 10
+            # Units as in the HA hoymiles_wifi integration: power in W,
+            # energy (lifetime, increasing) in 0.1 kWh steps.
+            for pv in storage.pv_panels:
+                total_power += pv.power or 0
+                total_wh    += (pv.energy or 0) * 100
 
-            if storage.battery_management:
-                soc = storage.battery_management.state_of_charge
-                if soc is not None:
-                    total_soc = soc if total_soc is None else (total_soc + soc) // 2
-
-            if storage.warning_number and storage.warning_number > _INFORMATIONAL_WARN_MAX:
-                any_alarm = True
+            if storage.HasField("battery_management"):
+                socs.append(storage.battery_management.state_of_charge)
 
         if responses == 0:
             self._consecutive_errors += 1
@@ -824,9 +902,17 @@ class HoymilesDevice(Device):
         self._consecutive_errors = 0
         await self.set_available()
         await self._set("measure_power", total_power)
-        if total_soc is not None:
-            await self._set("measure_battery", total_soc)
-        await self._set("alarm_generic", any_alarm)
+        # Same drop guard as standard polling: a missing inverter would understate the total.
+        if responses == len(inverter_sns) and (
+            self._last_lifetime_wh is None or total_wh >= self._last_lifetime_wh
+        ):
+            self._last_lifetime_wh = total_wh
+            await self._set("meter_power", total_wh / 1000)
+        if socs:
+            await self._set("measure_battery", round(sum(socs) / len(socs)))
+        # ESData has no warning_number; fault-code fields are undocumented,
+        # so don't guess an alarm from them.
+        await self._set("alarm_generic", False)
 
     # ── Night-time / solar window ─────────────────────────────────────────────
 
