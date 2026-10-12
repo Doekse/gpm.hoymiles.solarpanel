@@ -9,13 +9,6 @@ from homey.app import App
 
 from app.lib.fault_codes import known_fault_names
 
-# ── Debug verbosity ───────────────────────────────────────────────────────────
-# True  → one log line per poll (solar W + daily kWh) — homey app run --remote
-# False → silent (production)
-# Flip this ONE constant instead of hunting across device.py.
-DEBUG_LOG = False
-# ─────────────────────────────────────────────────────────────────────────────
-
 
 def _app_version() -> str:
     try:

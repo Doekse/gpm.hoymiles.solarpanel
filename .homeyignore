@@ -6,3 +6,8 @@ AGENTS.md
 __pycache__/
 *.pyc
 .claude/
+tests/
+requirements-dev.txt
+ruff.toml
+.venv/
+.ruff_cache/

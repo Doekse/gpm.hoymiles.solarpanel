@@ -10,7 +10,6 @@ from types import SimpleNamespace
 from astral import LocationInfo
 from astral.sun import sun
 
-from app.app import DEBUG_LOG as _DEBUG_LOG
 from app.drivers.hoymiles.driver import (
     capability_title, _ASSETS, _build_capabilities, _build_capabilities_options,
 )
@@ -105,6 +104,7 @@ class HoymilesDevice(Device):
         elif any(k in changed_keys for k in (
             "solar_latitude", "solar_longitude"
         )):
+            self._sun_cache = None
             self._start_polling()
         if "showPvDetail" in changed_keys:
             await self._sync_detail_caps("showPvDetail", self._pv_detail_caps(), new_settings.get("showPvDetail"))
@@ -970,10 +970,6 @@ class HoymilesDevice(Device):
             self.log(f"Night backoff disabled — sun calculation failed: {e}")
             return None
 
-    def _is_night_time(self) -> bool:
-        """True when outside solar window. Convenience wrapper."""
-        return self._is_night_time_from(self._get_sunrise_sunset())
-
     def _is_night_time_from(self, sun_times: tuple[float, float] | None) -> bool:
         """True when outside solar window with a 30-minute buffer on each side.
 
@@ -1007,6 +1003,9 @@ class HoymilesDevice(Device):
     ) -> None:
         """Zero instantaneous values, mark device available, and sleep 30 min."""
         self._consecutive_errors = 0
+        # The UTC date can be the same before and after a night (east of ~UTC+5),
+        # so end the "same day" here or the morning shows yesterday's daily total.
+        self._last_poll_ok_date = None
         await self._apply_zeros()
         await self.set_available()
         self._backoff_until = time.monotonic() + _BACKOFF_NIGHT

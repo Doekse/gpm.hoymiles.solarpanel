@@ -257,10 +257,6 @@ class HoymilesDriver(Driver):
     async def on_pair(self, session) -> None:
         self.log("onPair started")
         found_dtus: list[dict] = []
-        confirmed:  dict        = {}
-
-        def _device_key(info: dict) -> str:
-            return str(info.get("dtu_sn") or info.get("ip") or "")
 
         async def _query_dtu(ip: str, manual_sn: str = "") -> dict | None:
             """Query a single DTU — same detection logic as the HA integration."""
@@ -390,49 +386,6 @@ class HoymilesDriver(Driver):
                 self.log(f"login OK — {d['ip']} SN:{d['dtu_sn']} panels:{d['panel_count']} 3ph:{d['three_phase']} hybrid:{d['is_hybrid']}")
             return True
 
-        async def on_get_detected(data=None) -> dict:
-            if not found_dtus:
-                raise Exception("No DTU detected — go back and scan again.")
-            return {
-                "dtu_count": len(found_dtus),
-                "dtus": [dict(d) for d in found_dtus],
-            }
-
-        async def on_confirm_structure(data: dict) -> bool:
-            nonlocal confirmed
-            if not found_dtus:
-                raise Exception("No DTU detected — go back and scan again.")
-
-            overrides = data.get("devices")
-            if not isinstance(overrides, list) or not overrides:
-                # Backward-compatible single-device payload.
-                overrides = [data]
-
-            confirmed = {}
-            for index, base in enumerate(found_dtus):
-                incoming = overrides[index] if index < len(overrides) else {}
-                count = int(incoming.get("panel_count", base["panel_count"]))
-                if count < 1 or count > 8:
-                    raise Exception("Panel count must be between 1 and 8.")
-
-                merged = {
-                    "ip":           base["ip"],
-                    "dtu_sn":       base["dtu_sn"],
-                    "panel_count":  count,
-                    "three_phase":  bool(incoming.get("three_phase", base["three_phase"])),
-                    "is_hybrid":    bool(incoming.get("is_hybrid",   base["is_hybrid"])),
-                    "is_encrypted": bool(incoming.get("is_encrypted", base["is_encrypted"])),
-                    "enc_rand":     str(incoming.get("enc_rand", base["enc_rand"]) or ""),
-                    "inverter_sns": base["inverter_sns"],
-                }
-                confirmed[_device_key(base)] = merged
-                self.log(
-                    f"confirm_structure — {merged['ip']} SN:{merged['dtu_sn']} "
-                    f"panels:{merged['panel_count']} 3ph:{merged['three_phase']} "
-                    f"hybrid:{merged['is_hybrid']} enc:{merged['is_encrypted']}"
-                )
-            return True
-
         async def on_list_devices(data: dict = None) -> list:
             if not found_dtus:
                 raise Exception(self.homey.translate("error.no_devices"))
@@ -441,12 +394,11 @@ class HoymilesDriver(Driver):
             for d in found_dtus:
                 ip     = d["ip"]
                 sn     = d["dtu_sn"]
-                selected = confirmed.get(_device_key(d), d)
-                count        = selected["panel_count"]
-                three        = selected["three_phase"]
-                hybrid       = selected["is_hybrid"]
-                is_encrypted = selected["is_encrypted"]
-                enc_rand     = selected["enc_rand"]
+                count        = d["panel_count"]
+                three        = d["three_phase"]
+                hybrid       = d["is_hybrid"]
+                is_encrypted = d["is_encrypted"]
+                enc_rand     = d["enc_rand"]
 
                 dev_id = f"hoymiles_{sn or ip.replace('.', '_')}"
                 name   = f"Hoymiles DTU {sn}" if sn else f"Hoymiles DTU ({ip})"
@@ -471,8 +423,6 @@ class HoymilesDriver(Driver):
             return devices
 
         session.set_handler("login",            on_login)
-        session.set_handler("get_detected",     on_get_detected)
-        session.set_handler("confirm_structure", on_confirm_structure)
         session.set_handler("list_devices",     on_list_devices)
 
     async def on_repair(self, session, device) -> None:
