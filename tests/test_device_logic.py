@@ -254,3 +254,14 @@ assert p.vals["measure_power"] == 400.0 and p.vals["measure_power_ratio"] == 25,
 asyncio.run(p._sync_power_ratio_cap(0))  # on_settings passes the new value
 assert "measure_power_ratio" not in p.caps
 print("power ratio checks OK")
+
+# Regression (10-13 dev log): devices paired before nominal_power existed have no
+# stored value; on_init must not crash and must not add the tile.
+old = P({}, ["measure_power"])
+asyncio.run(old._sync_power_ratio_cap())
+assert "measure_power_ratio" not in old.caps
+# Hidden PV detail must stay hidden on init (no sentinel coercing it to "show").
+hid = R({"panel_count": 1, "showPvDetail": False}, ["measure_power"])
+asyncio.run(hid._sync_detail_caps("showPvDetail", hid._pv_detail_caps()))
+assert "measure_voltage.pv1" not in hid.caps, hid.caps
+print("init default checks OK")

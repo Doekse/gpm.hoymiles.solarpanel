@@ -39,8 +39,6 @@ _W100_NO_DATA_REBUILD_AFTER = 2 * 60 * 60  # seconds
 # always log immediately regardless.
 _HEARTBEAT_INTERVAL_S = 15 * 60
 
-_UNSET = object()  # sentinel distinguishing "no value passed" from an explicit None
-
 RESTORE_BUTTON_CAP = "button.restore_capabilities"
 POWER_RATIO_CAP = "measure_power_ratio"
 
@@ -142,7 +140,7 @@ class HoymilesDevice(Device):
             "measure_current": ("AC Current", {}),
         }
 
-    async def _sync_detail_caps(self, setting_id: str, cap_titles: dict[str, tuple[str, dict]], value=_UNSET) -> None:
+    async def _sync_detail_caps(self, setting_id: str, cap_titles: dict[str, tuple[str, dict]], value=None) -> None:
         """Add/remove a group of optional detail capabilities to match a device
         setting — no re-pairing needed.
 
@@ -153,7 +151,7 @@ class HoymilesDevice(Device):
         toggle behind). When omitted (on_init, no settings-change event to
         read from), falls back to self.get_setting().
         """
-        raw = self.get_setting(setting_id) if value is _UNSET else value
+        raw = self.get_setting(setting_id) if value is None else value
         # Devices paired before this setting existed have no stored value for
         # it — get_setting() returns None. Treat that as "show" (matches the
         # driver.compose.json default of true), not "hide": these capabilities
@@ -179,9 +177,9 @@ class HoymilesDevice(Device):
             except Exception as e:
                 _LOGGER.warning(f"Sync detail capability {cap} ({setting_id}) failed: {e}")
 
-    async def _sync_power_ratio_cap(self, value=_UNSET) -> None:
+    async def _sync_power_ratio_cap(self, value=None) -> None:
         """Power Ratio (%) tile exists only while nominal_power is set (> 0)."""
-        nominal = self.get_setting("nominal_power") if value is _UNSET else value
+        nominal = self.get_setting("nominal_power") if value is None else value
         show = (nominal or 0) > 0
         try:
             if show and not self.has_capability(POWER_RATIO_CAP):
@@ -477,7 +475,7 @@ class HoymilesDevice(Device):
         *previous* value at the moment on_settings fires, since Homey calls
         this hook before persisting the change). When omitted (on_init, no
         settings-change event to read from), falls back to self.get_setting().
-        A plain None default (not the module's _UNSET sentinel) — a real
+        A plain None default (not a module-level sentinel) — a real
         polling_interval is never legitimately None when explicitly passed,
         and identity-comparing against a module-level sentinel is fragile
         across a dev-mode module reload, which is what broke this before."""
