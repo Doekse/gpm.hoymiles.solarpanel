@@ -265,3 +265,39 @@ hid = R({"panel_count": 1, "showPvDetail": False}, ["measure_power"])
 asyncio.run(hid._sync_detail_caps("showPvDetail", hid._pv_detail_caps()))
 assert "measure_voltage.pv1" not in hid.caps, hid.caps
 print("init default checks OK")
+
+
+# Repair (10-13 log): saving a new IP must rebuild the DTU right away —
+# set_settings() from the app doesn't fire on_settings.
+class Session:
+    def __init__(self):
+        self.handlers = {}
+
+    def set_handler(self, name, fn):
+        self.handlers[name] = fn
+
+
+class RepairDev(R):
+    built = 0
+
+    def get_id(self):
+        return "dev"
+
+    async def _build_dtu(self):
+        self.built += 1
+
+
+class Drv(drv.HoymilesDriver):
+    def __init__(self):
+        pass
+
+    def log(self, *a):
+        pass
+
+
+rd = RepairDev({"ip": "192.168.1.201"}, [])
+sess = Session()
+asyncio.run(Drv().on_repair(sess, rd))
+asyncio.run(sess.handlers["save_repair"]({"ip": "10.10.10.201"}))
+assert rd.s["ip"] == "10.10.10.201" and rd.built == 1, (rd.s, rd.built)
+print("repair checks OK")

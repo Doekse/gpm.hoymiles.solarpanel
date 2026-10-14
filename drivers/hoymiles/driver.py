@@ -494,6 +494,9 @@ class HoymilesDriver(Driver):
                 return True
             self.log(f"Repair: applying settings {new_settings}")
             await device.set_settings(new_settings)
+            # set_settings() from the app doesn't fire on_settings, so the DTU
+            # would keep the old IP/encryption until the 20-min no-data rebuild.
+            await device._build_dtu()
             return True
 
         session.set_handler("get_current",   on_get_current)
