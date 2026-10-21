@@ -301,3 +301,34 @@ asyncio.run(Drv().on_repair(sess, rd))
 asyncio.run(sess.handlers["save_repair"]({"ip": "10.10.10.201"}))
 assert rd.s["ip"] == "10.10.10.201" and rd.built == 1, (rd.s, rd.built)
 print("repair checks OK")
+
+
+# ── Flow triggers use the Python SDK device-card API ─────────────────────────
+# Python SDK: get_device_trigger_card(id).trigger(device, tokens). The app-level
+# get_trigger_card(id).trigger() takes no device — the JS-style call raised a
+# TypeError that was swallowed, so no trigger ever fired.
+class DeviceCard:
+    calls = []
+
+    async def trigger(self, device, tokens=None, **kwargs):
+        DeviceCard.calls.append((device, tokens))
+
+
+class AppCard:
+    async def trigger(self, tokens=None, **kwargs):
+        pass
+
+
+class Flow:
+    def get_device_trigger_card(self, card_id):
+        return DeviceCard()
+
+    def get_trigger_card(self, card_id):
+        return AppCard()
+
+
+td = D({}, [])
+td.homey = types.SimpleNamespace(flow=Flow())
+asyncio.run(td._trigger("solar_production_started", {"power": 120.0}))
+assert DeviceCard.calls == [(td, {"power": 120.0})], DeviceCard.calls
+print("flow trigger checks OK")

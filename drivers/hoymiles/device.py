@@ -1110,10 +1110,11 @@ class HoymilesDevice(Device):
     async def _trigger(self, card_id: str, tokens: dict) -> None:
         """Fire a flow trigger card."""
         try:
-            card = self.homey.flow.get_trigger_card(card_id)
-            await card.trigger(self, tokens, {})
+            # Python SDK device cards: get_device_trigger_card(id).trigger(device, tokens).
+            card = self.homey.flow.get_device_trigger_card(card_id)
+            await card.trigger(self, tokens)
         except Exception as e:
-            _LOGGER.debug(f"Flow trigger '{card_id}' failed: {e}")
+            _LOGGER.warning(f"Flow trigger '{card_id}' failed: {e}")
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
