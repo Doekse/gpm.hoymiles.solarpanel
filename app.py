@@ -1,32 +1,24 @@
 """Hoymiles Wi-Fi Solar Panel — Python runtime."""
 
 import json
-import logging
 import os
-import sys
 from collections.abc import Mapping
 from typing import Any
 
 from homey.app import App
 
+from app.lib import debug
 from app.lib.fault_codes import known_fault_names
 
 # ── Debug verbosity ───────────────────────────────────────────────────────────
 # True  → every DEBUG line from this app (app.*) and from the hoymiles_wifi
-#         library (each DTU request in hex, read lengths, frame format), plus one
-#         "poll ok" line per poll — view with `homey app run --remote`.
-#         hoymiles_wifi also logs secrets: crypt_util the encryption key/nonce, and
-#         dtu.py every raw "Response:" in hex — the GetConfig reply holds the DTU's
-#         Wi-Fi SSID and password in clear. Both are filtered out below.
-# False → production. Never publish with True.
+#         library (each DTU request in hex, read lengths, frame format) for all
+#         devices, plus one "poll ok" line per poll — `homey app run --remote`.
+# False → production. Never publish with True. Remote users get the same per
+#         device via the "Debug logging" device setting (auto-off after an hour).
+# Secrets the library logs (encryption key/nonce, raw responses holding the
+# DTU's Wi-Fi password) are always dropped — see lib/debug.py.
 DEBUG_LOG = False
-
-
-class _HideSecrets(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        if record.module == "crypt_util":
-            return False
-        return not str(record.msg).lstrip("[*] ").startswith("Response:")
 
 
 def _app_version() -> str:
@@ -42,15 +34,7 @@ class HoymilesApp(App):
 
     async def on_init(self) -> None:
         await super().on_init()
-        if DEBUG_LOG:
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setFormatter(logging.Formatter("[debug] %(name)s: %(message)s"))
-            handler.addFilter(_HideSecrets())
-            for name in ("app", "hoymiles_wifi"):
-                logger = logging.getLogger(name)
-                logger.setLevel(logging.DEBUG)
-                logger.addHandler(handler)
-                logger.propagate = False
+        debug.install(force=DEBUG_LOG)
         self.log(f"gpm.hoymiles.solarpanel v{_app_version()} started"
                  f"{' — DEBUG_LOG on' if DEBUG_LOG else ''}")
         self._register_flow_conditions()

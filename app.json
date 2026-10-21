@@ -608,6 +608,17 @@
           }
         },
         {
+          "id": "debugLog",
+          "type": "checkbox",
+          "label": {
+            "en": "Debug logging (for diagnostic reports)"
+          },
+          "hint": {
+            "en": "Only when asked for a diagnostic report. Logs every poll and each request to this DTU (never the Wi-Fi password or encryption keys). Turn it on, wait for the problem to happen, then send a diagnostic report (Homey app → Apps → this app → Send diagnostic report). Switches itself off after 60 minutes."
+          },
+          "value": false
+        },
+        {
           "id": "is_hybrid",
           "type": "checkbox",
           "label": {

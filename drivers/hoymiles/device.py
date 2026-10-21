@@ -13,7 +13,7 @@ from astral.sun import sun
 from app.drivers.hoymiles.driver import (
     capability_title, _ASSETS, _build_capabilities, _build_capabilities_options,
 )
-from app.app import DEBUG_LOG
+from app.lib import debug
 from app.lib.fault_codes import decode_warning as _decode_warning
 from homey.device import Device
 from hoymiles_wifi.dtu import DTU
@@ -39,6 +39,7 @@ _W100_NO_DATA_REBUILD_AFTER = 2 * 60 * 60  # seconds
 # to this interval; state transitions (error, recovery, night enter/exit)
 # always log immediately regardless.
 _HEARTBEAT_INTERVAL_S = 15 * 60
+_DEBUG_SETTING_MAX_S = 60 * 60   # "Debug logging" setting switches itself off after this
 
 RESTORE_BUTTON_CAP = "button.restore_capabilities"
 POWER_RATIO_CAP = "measure_power_ratio"
@@ -48,6 +49,8 @@ class HoymilesDevice(Device):
 
     _dtu: DTU | None = None
     _poll_task: asyncio.Task | None = None
+    _debug_on: bool = False                    # this device's "Debug logging" setting
+    _debug_off_task: asyncio.Task | None = None
     _consecutive_errors: int = 0
     _ERROR_THRESHOLD: int = 5
     _backoff_until: float = 0.0
@@ -71,7 +74,7 @@ class HoymilesDevice(Device):
 
     def _heartbeat_due(self) -> bool:
         """Throttle routine (non-transition) log lines to _HEARTBEAT_INTERVAL_S apart."""
-        if DEBUG_LOG:
+        if self._debug_on or debug.active(None):
             return True
         now = time.monotonic()
         if now - self._last_heartbeat_at >= _HEARTBEAT_INTERVAL_S:
@@ -87,6 +90,9 @@ class HoymilesDevice(Device):
         await self._refresh_info()
         await self._ensure_structural_caps()
         await self._ensure_restore_button()
+        if self.get_setting("debugLog"):
+            await self._set_debug_logging(True)
+        token = debug.scope.set(self.get_id())
         try:
             # Best-effort — a bad first poll must not block on_init() from
             # completing, or the device would never start its recurring
@@ -94,6 +100,8 @@ class HoymilesDevice(Device):
             await self._poll()
         except Exception as e:
             self.log(f"Initial poll failed (will retry via poll loop): {type(e).__name__}: {e}")
+        finally:
+            debug.scope.reset(token)
         self._start_polling()
         await self._sync_detail_caps("showPvDetail", self._pv_detail_caps())
         await self._sync_detail_caps("showAcDetail", self._ac_detail_caps())
@@ -115,6 +123,8 @@ class HoymilesDevice(Device):
             await self._sync_detail_caps("showAcDetail", self._ac_detail_caps(), new_settings.get("showAcDetail"))
         if "nominal_power" in changed_keys:
             await self._sync_power_ratio_cap(new_settings.get("nominal_power"))
+        if "debugLog" in changed_keys:
+            await self._set_debug_logging(bool(new_settings.get("debugLog")))
         if any(k in changed_keys for k in ("panel_count", "three_phase")):
             # New values passed in: get_setting() still returns the old ones here.
             await self.restore_capabilities(new_settings)
@@ -203,6 +213,34 @@ class HoymilesDevice(Device):
 
     async def on_deleted(self) -> None:
         self._stop_polling()
+        if self._debug_on:
+            await self._set_debug_logging(False)
+
+    async def _set_debug_logging(self, on: bool) -> None:
+        """'Debug logging' device setting: this DTU's detailed lines in a remote
+        user's diagnostic report. Auto-off after _DEBUG_SETTING_MAX_S — the report
+        keeps only ~100 lines, and a forgotten debug flood would push the real
+        history out."""
+        if self._debug_off_task and not self._debug_off_task.done():
+            self._debug_off_task.cancel()
+        self._debug_off_task = None
+        self._debug_on = on
+        debug.set_enabled(self.get_id(), on)
+        if on:
+            self._debug_off_task = asyncio.create_task(self._debug_auto_off())
+        self.log(f"Debug logging {'on — switches off in ' + str(_DEBUG_SETTING_MAX_S // 60) + ' min' if on else 'off'}")
+
+    async def _debug_auto_off(self) -> None:
+        try:
+            await asyncio.sleep(_DEBUG_SETTING_MAX_S)
+        except asyncio.CancelledError:
+            return
+        self._debug_off_task = None  # don't cancel ourselves in _set_debug_logging
+        try:
+            await self.set_settings({"debugLog": False})
+        except Exception as e:
+            _LOGGER.warning(f"Debug logging auto-off: could not clear the setting: {e}")
+        await self._set_debug_logging(False)
 
     async def _ensure_structural_caps(self) -> None:
         """Add capabilities introduced after this device was originally paired.
@@ -493,6 +531,9 @@ class HoymilesDevice(Device):
         self._poll_task = None
 
     async def _poll_loop(self, interval: int) -> None:
+        # Tag everything this task logs (incl. hoymiles_wifi) with this device, so
+        # per-device "Debug logging" shows only this DTU — see lib/debug.py.
+        debug.scope.set(self.get_id())
         self.log(f"Polling started — every {interval}s")
         while True:
             remaining = self._backoff_until - time.monotonic()

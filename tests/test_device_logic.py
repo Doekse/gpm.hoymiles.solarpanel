@@ -50,6 +50,7 @@ def load(modname, path):
 for pkg in ("app", "app.drivers", "app.drivers.hoymiles", "app.lib"):
     sys.modules[pkg] = types.ModuleType(pkg)
 load("app.lib.fault_codes", "lib/fault_codes.py")
+load("app.lib.debug", "lib/debug.py")
 load("app.app", "app.py")
 drv = load("app.drivers.hoymiles.driver", "drivers/hoymiles/driver.py")
 dev = load("app.drivers.hoymiles.device", "drivers/hoymiles/device.py")
@@ -332,3 +333,38 @@ td.homey = types.SimpleNamespace(flow=Flow())
 asyncio.run(td._trigger("solar_production_started", {"power": 120.0}))
 assert DeviceCard.calls == [(td, {"power": 120.0})], DeviceCard.calls
 print("flow trigger checks OK")
+
+
+# ── Per-device "Debug logging": only the enabled DTU, never secrets ──────────
+import io  # noqa: E402
+import logging  # noqa: E402
+
+dbg = sys.modules["app.lib.debug"]
+dbg.install()
+handler = next(h for h in logging.getLogger("hoymiles_wifi").handlers
+               if any(isinstance(f, dbg._Filter) for f in h.filters))
+buf = io.StringIO()
+handler.setStream(buf)
+lib = logging.getLogger("hoymiles_wifi")
+
+
+async def dtu_poll(device_id):
+    dbg.scope.set(device_id)  # what _poll_loop does
+    await asyncio.sleep(0)
+    lib.debug(f"[*] Request message: from {device_id}")
+    lib.debug(f"Response: 820103494f548a010c<wifi-password> {device_id}")
+    lib.warning(f"timeout {device_id}")
+
+
+async def two_dtus():
+    await asyncio.gather(dtu_poll("dtu-201"), dtu_poll("dtu-202"))
+
+
+dbg.set_enabled("dtu-201", True)
+asyncio.run(two_dtus())
+dbg.set_enabled("dtu-201", False)
+out = buf.getvalue()
+assert "from dtu-201" in out and "from dtu-202" not in out, out
+assert "Response" not in out and "wifi-password" not in out, out
+assert "timeout dtu-201" in out and "timeout dtu-202" in out, out
+print("debug scope checks OK")
