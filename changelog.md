@@ -1,3 +1,33 @@
+v1.1.26
+
+Fixed hybrid (energy storage) systems showing no values at all — every poll failed on fields that don't exist in the storage data.
+Power, Lifetime Energy and battery level now update; the battery level is a true average across inverters.
+Removed the Daily Energy tile on hybrids, which never had a value (the storage data has no daily field).
+Pairing now refuses a hybrid gateway whose inverter list can't be read, instead of adding a device that never updates.
+Added a "Restore capabilities" button (device settings → Maintenance) that re-adds missing tiles with their correct names — no re-pairing, Flows and Insights are kept.
+Changing Panel Count or Three-phase in the settings now adds the matching tiles right away.
+The panel count is no longer lowered on restart, which froze some panel tiles.
+Fixed yesterday's Daily Energy showing in the early morning for locations east of UTC+5 (e.g. Asia, Australia).
+Changing Solar latitude/longitude now takes effect right away instead of the next day.
+New optional "Nominal power (W)" setting: when set, adds a Power Ratio (%) tile (current power ÷ nominal power), handy for Flows such as "production below 10%".
+Repair: a new DTU IP address now takes effect immediately (it used to wait up to 20 minutes for an automatic reconnect).
+Fixed: device Flow triggers (solar production started/stopped, daily data updated, data updated, fault detected) never fired.
+New device setting "Debug logging": when asked for a diagnostic report, turn it on for the DTU with the problem — it logs every poll and request for that DTU only (never the Wi-Fi password or encryption keys) and switches itself off after 60 minutes.
+
+v1.1.25
+
+EXPERIMENTAL, contributed and tested by a user (thank you!): added support for the DTU-W100 (10D3 serial family), which rejects the standard realtime-data command but works through the legacy one — detected automatically by serial prefix, no setting to configure.
+Includes a longer warm-up pause after sunrise and a longer "no data" backoff tuned for this DTU's slower responses, with the same automatic connection-rebuild safety net as every other DTU (just with more patience: 2 hours instead of 20 minutes).
+Also fixed a bug (unrelated to the W100) where changing the Polling Interval setting had no effect until something else triggered a restart.
+
+v1.1.24
+
+Fixed Lifetime Energy occasionally dropping and then jumping back up in the history — it's now rejected if fewer panels report in a poll than configured (the previous sum was incomplete, not wrong data from the device), and any other drop must repeat on the next poll before being accepted, so a one-off bad reading can't get stuck hiding real production increases from a genuinely lower value.
+
+v1.1.23
+
+Raised the Panel Count limit from 8 to 32 — installations with more than 8 panels on one DTU couldn't be paired correctly, and the automatic panel-count self-correction (which runs once at startup) silently failed to fix a wrong value above 8.
+
 v1.1.22
 
 Fixed: A possible startup failure when encryption settings (enc_rand) became corrupted — the device now falls back to unencrypted mode instead of failing to start.
