@@ -15,15 +15,18 @@ from app.lib.fault_codes import known_fault_names
 # True  → every DEBUG line from this app (app.*) and from the hoymiles_wifi
 #         library (each DTU request in hex, read lengths, frame format), plus one
 #         "poll ok" line per poll — view with `homey app run --remote`.
-#         hoymiles_wifi's crypt_util also logs the encryption key and nonce; those
-#         records are filtered out below.
+#         hoymiles_wifi also logs secrets: crypt_util the encryption key/nonce, and
+#         dtu.py every raw "Response:" in hex — the GetConfig reply holds the DTU's
+#         Wi-Fi SSID and password in clear. Both are filtered out below.
 # False → production. Never publish with True.
 DEBUG_LOG = False
 
 
-class _NoCryptDetails(logging.Filter):
+class _HideSecrets(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        return record.module != "crypt_util"
+        if record.module == "crypt_util":
+            return False
+        return not str(record.msg).lstrip("[*] ").startswith("Response:")
 
 
 def _app_version() -> str:
@@ -42,7 +45,7 @@ class HoymilesApp(App):
         if DEBUG_LOG:
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(logging.Formatter("[debug] %(name)s: %(message)s"))
-            handler.addFilter(_NoCryptDetails())
+            handler.addFilter(_HideSecrets())
             for name in ("app", "hoymiles_wifi"):
                 logger = logging.getLogger(name)
                 logger.setLevel(logging.DEBUG)
