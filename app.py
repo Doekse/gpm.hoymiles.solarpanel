@@ -1,13 +1,29 @@
 """Hoymiles Wi-Fi Solar Panel — Python runtime."""
 
 import json
+import logging
 import os
+import sys
 from collections.abc import Mapping
 from typing import Any
 
 from homey.app import App
 
 from app.lib.fault_codes import known_fault_names
+
+# ── Debug verbosity ───────────────────────────────────────────────────────────
+# True  → every DEBUG line from this app (app.*) and from the hoymiles_wifi
+#         library (each DTU request in hex, read lengths, frame format), plus one
+#         "poll ok" line per poll — view with `homey app run --remote`.
+#         hoymiles_wifi's crypt_util also logs the encryption key and nonce; those
+#         records are filtered out below.
+# False → production. Never publish with True.
+DEBUG_LOG = False
+
+
+class _NoCryptDetails(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.module != "crypt_util"
 
 
 def _app_version() -> str:
@@ -23,7 +39,17 @@ class HoymilesApp(App):
 
     async def on_init(self) -> None:
         await super().on_init()
-        self.log(f"gpm.hoymiles.solarpanel v{_app_version()} started")
+        if DEBUG_LOG:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(logging.Formatter("[debug] %(name)s: %(message)s"))
+            handler.addFilter(_NoCryptDetails())
+            for name in ("app", "hoymiles_wifi"):
+                logger = logging.getLogger(name)
+                logger.setLevel(logging.DEBUG)
+                logger.addHandler(handler)
+                logger.propagate = False
+        self.log(f"gpm.hoymiles.solarpanel v{_app_version()} started"
+                 f"{' — DEBUG_LOG on' if DEBUG_LOG else ''}")
         self._register_flow_conditions()
 
     async def on_uninit(self) -> None:

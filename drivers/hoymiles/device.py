@@ -13,6 +13,7 @@ from astral.sun import sun
 from app.drivers.hoymiles.driver import (
     capability_title, _ASSETS, _build_capabilities, _build_capabilities_options,
 )
+from app.app import DEBUG_LOG
 from app.lib.fault_codes import decode_warning as _decode_warning
 from homey.device import Device
 from hoymiles_wifi.dtu import DTU
@@ -70,6 +71,8 @@ class HoymilesDevice(Device):
 
     def _heartbeat_due(self) -> bool:
         """Throttle routine (non-transition) log lines to _HEARTBEAT_INTERVAL_S apart."""
+        if DEBUG_LOG:
+            return True
         now = time.monotonic()
         if now - self._last_heartbeat_at >= _HEARTBEAT_INTERVAL_S:
             self._last_heartbeat_at = now
