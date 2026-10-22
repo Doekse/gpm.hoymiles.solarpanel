@@ -368,3 +368,46 @@ assert "from dtu-201" in out and "from dtu-202" not in out, out
 assert "Response" not in out and "wifi-password" not in out, out
 assert "timeout dtu-201" in out and "timeout dtu-202" in out, out
 print("debug scope checks OK")
+
+
+# ── Production started/stopped: hysteresis, transient DTU zeros, night close ─
+class TrigDev(D):
+    def __init__(self):
+        super().__init__({}, [])
+        self.fired = []
+
+    def has_capability(self, c):
+        return False
+
+    def log(self, *a):
+        pass
+
+    async def _trigger(self, card, tokens):
+        if card != "data_updated":  # fires every poll, not a transition
+            self.fired.append(card)
+
+
+async def run_powers(dev, powers):
+    for w in powers:
+        await dev._fire_flow_triggers(float(w), 1.5)
+
+
+td = TrigDev()
+asyncio.run(run_powers(td, [0, 3, 5.9, 12]))            # dawn: below 25 W, no start
+assert td.fired == [], td.fired
+asyncio.run(run_powers(td, [30]))                       # start above 25 W
+assert td.fired == ["solar_production_started"], td.fired
+asyncio.run(run_powers(td, [400, 0, 140.9, 600]))      # one transient DTU zero mid-day
+assert td.fired == ["solar_production_started"], td.fired
+asyncio.run(run_powers(td, [9, 4, 3, 2]))               # dusk: three low polls in a row
+assert td.fired.count("solar_production_stopped") == 1, td.fired
+assert td.fired[-1] == "daily_data_updated", td.fired
+
+tn = TrigDev()                                          # micro falls asleep above the threshold
+asyncio.run(run_powers(tn, [0, 300, 40]))
+tn.fired.clear()
+tn._was_night = False
+tn._backoff_until = 0
+asyncio.run(tn._apply_night_backoff((8.2, 20.9)))
+assert tn.fired == ["solar_production_stopped", "daily_data_updated"], tn.fired
+print("production trigger checks OK")

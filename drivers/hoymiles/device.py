@@ -39,6 +39,13 @@ _W100_NO_DATA_REBUILD_AFTER = 2 * 60 * 60  # seconds
 # to this interval; state transitions (error, recovery, night enter/exit)
 # always log immediately regardless.
 _HEARTBEAT_INTERVAL_S = 15 * 60
+
+# Production started/stopped: start only above _START_W (at dawn/dusk power hovers
+# around a few watts), stop only after _STOP_POLLS polls in a row at or below
+# _STOP_W (the DTU sometimes returns a single 0 W reading mid-day).
+_PRODUCTION_STOP_W = 5.0
+_PRODUCTION_START_W = 25.0
+_PRODUCTION_STOP_POLLS = 3
 _DEBUG_SETTING_MAX_S = 60 * 60   # "Debug logging" setting switches itself off after this
 
 RESTORE_BUTTON_CAP = "button.restore_capabilities"
@@ -65,6 +72,8 @@ class HoymilesDevice(Device):
     _dtu_rebuilds: int = 0
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
+    _low_polls: int = 0                 # consecutive polls at or below _PRODUCTION_STOP_W
+    _last_today_kwh: float = 0.0        # for the daily summary when the day ends at night
     _had_fault: bool | None = None      # None = first poll, state not yet known
     _was_night: bool = False          # last poll's night/day state, for transition logging
     _w100_morning_warmup_done: bool = False
@@ -1070,6 +1079,15 @@ class HoymilesDevice(Device):
     ) -> None:
         """Zero instantaneous values, mark device available, and sleep 30 min."""
         self._consecutive_errors = 0
+        # Close the production day: microinverters fall asleep (DTU: no data) while
+        # power may still be above the stop threshold, so "stopped" and the daily
+        # summary would otherwise never fire that day.
+        if self._was_producing:
+            try:
+                await self._production_stopped(self._last_today_kwh)
+            except Exception as e:
+                _LOGGER.warning(f"Production-stopped trigger at night entry failed: {e}")
+        self._low_polls = 0
         # The UTC date can be the same before and after a night (east of ~UTC+5),
         # so end the "same day" here or the morning shows yesterday's daily total.
         self._last_poll_ok_date = None
@@ -1119,9 +1137,20 @@ class HoymilesDevice(Device):
 
     # ── Flow triggers ─────────────────────────────────────────────────────────
 
+    async def _production_stopped(self, today_kwh: float) -> None:
+        self._was_producing = False
+        self.log(f"production stopped — daily {today_kwh:.2f}kWh")
+        await self._trigger("solar_production_stopped", {})
+        await self._trigger("daily_data_updated", {"daily_production": today_kwh})
+
     async def _fire_flow_triggers(self, power_w: float, today_kwh: float) -> None:
         """Fire flow triggers based on state transitions detected in poll values."""
-        is_producing = power_w > 5.0
+        self._last_today_kwh = today_kwh
+        self._low_polls = self._low_polls + 1 if power_w <= _PRODUCTION_STOP_W else 0
+        if self._was_producing:
+            is_producing = self._low_polls < _PRODUCTION_STOP_POLLS
+        else:
+            is_producing = power_w > _PRODUCTION_START_W
 
         # Fault/alarm detected — edge-triggered, only on the OK → fault transition
         # (fault_description was already updated earlier in this poll).
@@ -1144,10 +1173,7 @@ class HoymilesDevice(Device):
             self.log(f"production started — {power_w:.0f}W")
             await self._trigger("solar_production_started", {"power": power_w})
         elif not is_producing and self._was_producing:
-            self._was_producing = False
-            self.log(f"production stopped — daily {today_kwh:.2f}kWh")
-            await self._trigger("solar_production_stopped", {})
-            await self._trigger("daily_data_updated", {"daily_production": today_kwh})
+            await self._production_stopped(today_kwh)
 
         await self._trigger("data_updated", {"power": power_w, "daily_production": today_kwh})
 

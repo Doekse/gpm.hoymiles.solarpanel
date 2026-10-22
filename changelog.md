@@ -12,6 +12,7 @@ Changing Solar latitude/longitude now takes effect right away instead of the nex
 New optional "Nominal power (W)" setting: when set, adds a Power Ratio (%) tile (current power ÷ nominal power), handy for Flows such as "production below 10%".
 Repair: a new DTU IP address now takes effect immediately (it used to wait up to 20 minutes for an automatic reconnect).
 Fixed: device Flow triggers (solar production started/stopped, daily data updated, data updated, fault detected) never fired.
+"Solar production started" now needs more than 25 W (it fired at dawn on 5 W), and "stopped" needs three low readings in a row, so a single 0 W reading from the DTU mid-day no longer fires stopped + started; at night "stopped" and the daily summary also fire when the inverter falls asleep first.
 New device setting "Debug logging": when asked for a diagnostic report, turn it on for the DTU with the problem — it logs every poll and request for that DTU only (never the Wi-Fi password or encryption keys) and switches itself off after 60 minutes.
 
 v1.1.25
