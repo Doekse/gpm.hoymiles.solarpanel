@@ -1147,6 +1147,11 @@ class HoymilesDevice(Device):
         """Fire flow triggers based on state transitions detected in poll values."""
         self._last_today_kwh = today_kwh
         self._low_polls = self._low_polls + 1 if power_w <= _PRODUCTION_STOP_W else 0
+        if self._was_producing and self._low_polls:
+            # Always logged (not debug): shows whether a mid-day "stopped" came from
+            # one transient DTU zero or minutes of 0 W, without asking for debug.
+            self.log(f"low power while producing: {power_w:.0f}W "
+                     f"({self._low_polls}/{_PRODUCTION_STOP_POLLS})")
         if self._was_producing:
             is_producing = self._low_polls < _PRODUCTION_STOP_POLLS
         else:
