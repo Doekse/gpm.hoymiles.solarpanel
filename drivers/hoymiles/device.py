@@ -68,7 +68,6 @@ class HoymilesDevice(Device):
     _last_poll_ok_date = None
     _last_poll_ok_warning: int | None = None
     _last_lifetime_wh: float | None = None  # last meter_power (Wh) actually written
-    _pending_lower_wh: float | None = None  # unconfirmed lower reading, awaiting a second poll to agree
     _dtu_rebuilds: int = 0
     _sun_cache: tuple | None = None   # (cache_date, sunrise_utc, sunset_utc)
     _was_producing: bool | None = None  # None = first poll, state not yet known
@@ -820,29 +819,16 @@ class HoymilesDevice(Device):
         else:
             total_wh = sum(pv.energy_total or 0 for pv in pv_list)
             if self._last_lifetime_wh is not None and total_wh < self._last_lifetime_wh - 10:
-                # Looks like a drop with a full panel count. Could be a
-                # one-off bad reading, or a genuine reset (device swapped/
-                # reconfigured). Require the same lower value to repeat on
-                # the next poll before accepting it — a single-poll glitch
-                # gets ignored, but a real reset is accepted quickly instead
-                # of silently hiding whatever this device produces from here
-                # on (comparing forever against a stale held-over value
-                # would swallow real production increments until the true
-                # total organically climbed back past it).
-                if self._pending_lower_wh is not None and abs(total_wh - self._pending_lower_wh) < 10:
-                    self.log(f"meter_power: drop to {total_wh}Wh confirmed on second poll — accepting as new baseline")
-                    self._last_lifetime_wh = total_wh
-                    self._pending_lower_wh = None
-                    await self._set("meter_power", total_wh / 1000)
-                else:
-                    self.log(
-                        f"meter_power: implausible drop ({self._last_lifetime_wh}Wh -> {total_wh}Wh) — "
-                        f"skipping, keeping last known value pending confirmation"
-                    )
-                    self._pending_lower_wh = total_wh
+                # Near sunset the DTU can return a full panel count with
+                # stale lower totals. Reject the drop and keep the last
+                # written value; a maintenance action clears the baseline
+                # after a real inverter swap.
+                self.log(
+                    f"meter_power: implausible drop ({self._last_lifetime_wh}Wh -> {total_wh}Wh) — "
+                    f"skipping, keeping last known value"
+                )
             else:
                 self._last_lifetime_wh = total_wh
-                self._pending_lower_wh = None
                 await self._set("meter_power", total_wh / 1000)
 
         # Each block below is independently guarded: an unexpected field on one
