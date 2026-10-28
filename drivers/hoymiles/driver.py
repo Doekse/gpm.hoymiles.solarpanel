@@ -117,6 +117,12 @@ def _is_encrypted(dfs: int) -> bool:
     return bool((dfs >> _IS_ENCRYPTED_BIT) & 1)
 
 
+def _valid_ip(ip: str) -> bool:
+    """True when ``ip`` is a dotted IPv4 address with each octet in 0–255."""
+    parts = ip.split(".")
+    return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+
+
 def _local_subnet() -> str | None:
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -257,6 +263,7 @@ class HoymilesDriver(Driver):
     async def on_pair(self, session) -> None:
         self.log("onPair started")
         found_dtus: list[dict] = []
+        selected: dict | None = None
 
         async def _query_dtu(ip: str, manual_sn: str = "") -> dict | None:
             """Query a single DTU — same detection logic as the HA integration."""
@@ -356,39 +363,15 @@ class HoymilesDriver(Driver):
                 "source":        source,
             }
 
-        async def on_login(data: dict) -> bool:
+        async def on_list_devices(data: dict = None) -> list:
             nonlocal found_dtus
-            host      = str(data.get("username", "")).strip()
-            manual_sn = str(data.get("password", "")).strip()
-            self.log(f"login — ip: '{host}' sn_fallback: '{manual_sn}'")
-
-            if not host:
-                self.log("No IP entered — scanning network for Hoymiles DTU...")
+            if not found_dtus:
+                self.log("list_devices — scanning network for Hoymiles DTU...")
                 ips = await _discover_dtus(timeout=1.5)
                 self.log(f"Network scan found: {ips}")
-                if not ips:
-                    raise Exception(self.homey.translate("error.no_dtu_found"))
-                results = await asyncio.gather(*[_query_dtu(ip) for ip in ips])
-                found_dtus = [r for r in results if r]
-            else:
-                octets = host.split(".")
-                if len(octets) != 4 or not all(o.isdigit() and 0 <= int(o) <= 255 for o in octets):
-                    raise Exception(self.homey.translate("error.invalid_ip", ip=host))
-                info = await _query_dtu(host, manual_sn)
-                if not info:
-                    raise Exception(self.homey.translate("error.cannot_reach", ip=host))
-                found_dtus = [info]
-
-            if not found_dtus:
-                raise Exception(self.homey.translate("error.no_dtu_responded"))
-
-            for d in found_dtus:
-                self.log(f"login OK — {d['ip']} SN:{d['dtu_sn']} panels:{d['panel_count']} 3ph:{d['three_phase']} hybrid:{d['is_hybrid']}")
-            return True
-
-        async def on_list_devices(data: dict = None) -> list:
-            if not found_dtus:
-                raise Exception(self.homey.translate("error.no_devices"))
+                if ips:
+                    results = await asyncio.gather(*[_query_dtu(ip) for ip in ips])
+                    found_dtus = [r for r in results if r]
 
             devices = []
             for d in found_dtus:
@@ -420,10 +403,53 @@ class HoymilesDriver(Driver):
                         "enc_rand":         enc_rand,
                     },
                 })
+            devices.append({
+                "name":         self.homey.translate("pair.add_by_ip"),
+                "data":         {"id": "manual"},
+                "capabilities": [],
+            })
             return devices
 
-        session.set_handler("login",            on_login)
-        session.set_handler("list_devices",     on_list_devices)
+        async def on_list_devices_selection(devices: list) -> None:
+            nonlocal selected
+            if not devices:
+                raise Exception(self.homey.translate("error.no_devices"))
+            selected = devices[0]
+            self.log(f"list_devices_selection — {selected.get('data', {}).get('id')}")
+
+        async def on_show_view(view_id: str) -> None:
+            if view_id != "loading":
+                return
+            if selected is None:
+                raise Exception(self.homey.translate("error.no_devices"))
+            selected_id = selected.get("data", {}).get("id")
+            if selected_id == "manual":
+                await session.show_view("configure_manual")
+            else:
+                # configure_manual sits between loading and add_devices, so
+                # next_view() would open the manual form.
+                await session.show_view("add_devices")
+
+        async def on_configure_manual(data: dict = None) -> str:
+            nonlocal found_dtus
+            data = data or {}
+            ip = str(data.get("ip") or "").strip()
+            serial = str(data.get("serial") or "").strip()
+            self.log(f"configure_manual — ip: '{ip}' sn_fallback: '{serial}'")
+            if not _valid_ip(ip):
+                raise Exception(self.homey.translate("error.invalid_ip", ip=ip))
+            info = await _query_dtu(ip, serial)
+            if not info:
+                raise Exception(self.homey.translate("error.cannot_reach", ip=ip))
+            found_dtus = [info]
+            # The view calls Homey.showView after this emit resolves. Awaiting
+            # show_view here deadlocks Homey's pair client.
+            return "list_devices"
+
+        session.set_handler("list_devices",           on_list_devices)
+        session.set_handler("list_devices_selection", on_list_devices_selection)
+        session.set_handler("showView",               on_show_view)
+        session.set_handler("configure_manual",       on_configure_manual)
 
     async def on_repair(self, session, device) -> None:
         """
