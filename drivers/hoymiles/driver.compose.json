@@ -420,13 +420,20 @@
   ],
   "pair": [
     {
-      "id": "login",
-      "navigation": { "next": "list_devices" }
-    },
-    {
       "id": "list_devices",
       "template": "list_devices",
-      "navigation": { "next": "add_devices" }
+      "options": {
+        "singular": true
+      },
+      "navigation": { "next": "loading" }
+    },
+    {
+      "id": "loading",
+      "template": "loading"
+    },
+    {
+      "id": "configure_manual",
+      "navigation": false
     },
     {
       "id": "add_devices",
@@ -434,6 +441,9 @@
     }
   ],
   "repair": [
-    { "id": "repair_device" }
+    {
+      "id": "configure_manual",
+      "navigation": false
+    }
   ]
 }
