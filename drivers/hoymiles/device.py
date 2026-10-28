@@ -49,6 +49,7 @@ _PRODUCTION_STOP_POLLS = 3
 _DEBUG_SETTING_MAX_S = 60 * 60   # "Debug logging" setting switches itself off after this
 
 RESTORE_BUTTON_CAP = "button.restore_capabilities"
+RESET_LIFETIME_BUTTON_CAP = "button.reset_lifetime_baseline"
 POWER_RATIO_CAP = "measure_power_ratio"
 
 
@@ -98,6 +99,7 @@ class HoymilesDevice(Device):
         await self._refresh_info()
         await self._ensure_structural_caps()
         await self._ensure_restore_button()
+        await self._ensure_reset_lifetime_button()
         if self.get_setting("debugLog"):
             await self._set_debug_logging(True)
         token = debug.scope.set(self.get_id())
@@ -296,6 +298,28 @@ class HoymilesDevice(Device):
 
     async def _on_restore_button(self, value, **kwargs) -> None:
         await self.restore_capabilities()
+
+    async def _ensure_reset_lifetime_button(self) -> None:
+        """Maintenance action that clears the held Lifetime Energy floor after a
+        microinverter swap. Options come from driver.compose.json."""
+        try:
+            if not self.has_capability(RESET_LIFETIME_BUTTON_CAP):
+                await self.add_capability(RESET_LIFETIME_BUTTON_CAP)
+            self.register_capability_listener(
+                RESET_LIFETIME_BUTTON_CAP, self._on_reset_lifetime_button
+            )
+        except Exception as e:
+            _LOGGER.warning(f"Reset energy baseline button setup failed: {e}")
+
+    async def _on_reset_lifetime_button(self, value, **kwargs) -> None:
+        """Clear the monotone floor only — next good poll becomes the baseline."""
+        prev = self._last_lifetime_wh
+        self._last_lifetime_wh = None
+        self.log(
+            f"meter_power: energy baseline reset"
+            f"{f' (was {prev}Wh)' if prev is not None else ''} — "
+            f"next poll becomes the new total"
+        )
 
     async def restore_capabilities(self, settings: dict | None = None) -> list[str]:
         """Re-add every capability pairing would create for this device's
