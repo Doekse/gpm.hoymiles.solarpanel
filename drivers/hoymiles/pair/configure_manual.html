@@ -1,0 +1,53 @@
+<form class="homey-form" id="configure-manual-form">
+  <div class="homey-form-group">
+    <label class="homey-form-label" for="ip" data-i18n="pair.ip_label"></label>
+    <input class="homey-form-input" id="ip" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-i18n-placeholder="pair.ip_placeholder" />
+  </div>
+  <div class="homey-form-group">
+    <label class="homey-form-label" for="serial">
+      <span data-i18n="pair.serial_label"></span>
+      <span data-i18n="pair.serial_optional"></span>
+    </label>
+    <input class="homey-form-input" id="serial" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-i18n-placeholder="pair.serial_placeholder" />
+    <p class="homey-subtitle" data-i18n="pair.serial_hint"></p>
+  </div>
+  <button type="submit" class="homey-button-primary-full" id="connect" data-i18n="pair.connect_button"></button>
+</form>
+
+<script type="text/javascript">
+  (function () {
+    var $ip = document.getElementById('ip');
+    var $serial = document.getElementById('serial');
+    var $btn = document.getElementById('connect');
+
+    Homey.setTitle(null);
+
+    // Repair registers get_current; pair does not — ignore reject there.
+    Homey.emit('get_current').then(function (data) {
+      if (!data) return;
+      if (data.ip) $ip.value = data.ip;
+      if (data.serial) {
+        $serial.value = data.serial;
+        $serial.readOnly = true;
+      }
+    }).catch(function () {});
+
+    document.getElementById('configure-manual-form').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if ($btn.classList.contains('is-loading')) return;
+      $btn.classList.add('is-loading');
+
+      Homey.emit('configure_manual', {
+        ip: $ip.value.trim(),
+        serial: $serial.value.trim(),
+      }).then(function (next) {
+        // Pair returns list_devices; repair returns nothing and closes.
+        if (next) Homey.showView(next);
+        else Homey.done();
+      }).catch(function (err) {
+        $btn.classList.remove('is-loading');
+        Homey.alert(err);
+      });
+    });
+  })();
+</script>

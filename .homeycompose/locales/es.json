@@ -1,7 +1,7 @@
 {
   "pair": {
     "ip_label": "Dirección IP del DTU",
-    "ip_placeholder": "Dejar vacío para detección automática",
+    "ip_placeholder": "192.168.1.201",
     "ip_hint": "Dejar vacío para escanear la red automáticamente.",
     "serial_label": "Número de serie del DTU",
     "serial_optional": "(opcional)",

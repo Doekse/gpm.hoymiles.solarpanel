@@ -1,7 +1,7 @@
 {
   "pair": {
     "ip_label": "DTU IP-adress",
-    "ip_placeholder": "Lämna tomt för automatisk identifiering",
+    "ip_placeholder": "192.168.1.201",
     "ip_hint": "Lämna tomt för att skanna nätverket automatiskt.",
     "serial_label": "DTU-serienummer",
     "serial_optional": "(valfritt)",

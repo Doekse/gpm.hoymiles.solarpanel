@@ -1,7 +1,7 @@
 {
   "pair": {
     "ip_label": "Adresse IP du DTU",
-    "ip_placeholder": "Laisser vide pour la détection automatique",
+    "ip_placeholder": "192.168.1.201",
     "ip_hint": "Laisser vide pour scanner le réseau automatiquement.",
     "login_title": "Hoymiles DTU",
     "login_subtitle": "Scannez votre réseau local pour trouver automatiquement les DTU Hoymiles.",
