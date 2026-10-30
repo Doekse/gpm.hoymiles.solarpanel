@@ -833,17 +833,22 @@
       ],
       "pair": [
         {
-          "id": "login",
+          "id": "list_devices",
+          "template": "list_devices",
+          "options": {
+            "singular": true
+          },
           "navigation": {
-            "next": "list_devices"
+            "next": "loading"
           }
         },
         {
-          "id": "list_devices",
-          "template": "list_devices",
-          "navigation": {
-            "next": "add_devices"
-          }
+          "id": "loading",
+          "template": "loading"
+        },
+        {
+          "id": "configure_manual",
+          "navigation": {}
         },
         {
           "id": "add_devices",
@@ -852,7 +857,8 @@
       ],
       "repair": [
         {
-          "id": "repair_device"
+          "id": "configure_manual",
+          "navigation": {}
         }
       ],
       "id": "hoymiles"

@@ -433,7 +433,7 @@
     },
     {
       "id": "configure_manual",
-      "navigation": false
+      "navigation": {}
     },
     {
       "id": "add_devices",
@@ -443,7 +443,7 @@
   "repair": [
     {
       "id": "configure_manual",
-      "navigation": false
+      "navigation": {}
     }
   ]
 }
