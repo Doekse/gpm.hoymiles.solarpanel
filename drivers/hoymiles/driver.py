@@ -123,6 +123,11 @@ def _valid_ip(ip: str) -> bool:
     return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
 
 
+def _pairable(info: dict | None) -> bool:
+    """Pairing needs inverter serials for a hybrid; without them polling can never start."""
+    return bool(info) and not (info["is_hybrid"] and not info["inverter_sns"])
+
+
 def _local_subnet() -> str | None:
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -260,108 +265,108 @@ class HoymilesDriver(Driver):
     async def on_init(self) -> None:
         self.log("HoymilesDriver (Python) init")
 
+    async def _query_dtu(self, ip: str, manual_sn: str = "") -> dict | None:
+        """Query a single DTU — same detection logic as the HA integration."""
+        dtu = DTU(ip, timeout=10)
+
+        # 1. app_info — always available (DTU on even at night)
+        try:
+            app_info = await asyncio.wait_for(dtu.async_app_information_data(), timeout=10)
+        except Exception:
+            return None
+        if not app_info:
+            return None
+
+        dtu_sn       = str(app_info.dtu_serial_number or "") or manual_sn
+        is_encrypted = False
+        enc_rand     = ""
+
+        if app_info.dtu_info:
+            di = app_info.dtu_info
+            if di.dfs and _is_encrypted(di.dfs):
+                is_encrypted = True
+                enc_rand = di.enc_rand.hex() if di.enc_rand else ""
+                dtu = DTU(ip, timeout=10, is_encrypted=True,
+                          enc_rand=bytes.fromhex(enc_rand))
+                await asyncio.sleep(2)
+
+        # 2. real_data — detect three_phase and panel count
+        # Use app_info.pv_number as baseline (available even when inverter sleeps)
+        app_info_panels = int(app_info.pv_number or 0)
+        panel_count     = app_info_panels or 2
+        three_phase     = False
+        is_hybrid       = False
+        inverter_sns    = []
+        source          = "app_info"
+
+        # Try real_data up to 2 times — some DTUs respond slowly
+        real_data = None
+        for attempt in range(2):
+            try:
+                real_data = await asyncio.wait_for(dtu.async_get_real_data_new(), timeout=8)
+                if real_data:
+                    break
+            except Exception:
+                if attempt == 0:
+                    await asyncio.sleep(2)
+
+        if real_data:
+            pv_count = len(real_data.pv_data or [])
+            # Use max so a sleeping panel doesn't reduce a known panel count
+            if pv_count:
+                panel_count = max(app_info_panels, pv_count)
+            three_phase = len(real_data.tgs_data or []) > 0
+            dtu_sn      = str(real_data.device_serial_number or "") or dtu_sn
+            source      = "real_data"
+        else:
+            # Inverter sleeping — try hybrid (gateway) path
+            try:
+                gw = await asyncio.wait_for(dtu.async_get_gateway_info(), timeout=8)
+                if gw:
+                    dtu_sn    = str(gw.serial_number or "") or dtu_sn
+                    is_hybrid = True
+                    source    = "gateway"
+                    try:
+                        registry = await asyncio.wait_for(
+                            dtu.async_get_energy_storage_registry(
+                                dtu_serial_number=int(dtu_sn)
+                            ), timeout=8
+                        )
+                        if registry:
+                            inverter_sns = [
+                                str(inv.serial_number)
+                                for inv in (registry.inverters or [])
+                            ]
+                    except Exception:
+                        pass
+                    if not inverter_sns:
+                        # Still return the connection fields. Pairing drops this
+                        # via _pairable; repair only updates IP and encryption.
+                        self.log(f"DTU {ip} — hybrid but inverter registry unavailable")
+            except Exception:
+                pass
+
+        self.log(
+            f"DTU {ip} — SN:{dtu_sn} panels:{panel_count} 3ph:{three_phase} "
+            f"hybrid:{is_hybrid} enc:{is_encrypted} source:{source}"
+        )
+
+        return {
+            "ip":            ip,
+            "dtu_sn":        dtu_sn,
+            "panel_count":   panel_count,
+            "three_phase":   three_phase,
+            "is_hybrid":     is_hybrid,
+            "inverter_sns":  inverter_sns,
+            "is_encrypted":  is_encrypted,
+            "enc_rand":      enc_rand,
+            "source":        source,
+        }
+
     async def on_pair(self, session) -> None:
         self.log("onPair started")
         found_dtus: list[dict] = []
         selected: dict | None = None
-
-        async def _query_dtu(ip: str, manual_sn: str = "") -> dict | None:
-            """Query a single DTU — same detection logic as the HA integration."""
-            dtu = DTU(ip, timeout=10)
-
-            # 1. app_info — always available (DTU on even at night)
-            try:
-                app_info = await asyncio.wait_for(dtu.async_app_information_data(), timeout=10)
-            except Exception:
-                return None
-            if not app_info:
-                return None
-
-            dtu_sn       = str(app_info.dtu_serial_number or "") or manual_sn
-            is_encrypted = False
-            enc_rand     = ""
-
-            if app_info.dtu_info:
-                di = app_info.dtu_info
-                if di.dfs and _is_encrypted(di.dfs):
-                    is_encrypted = True
-                    enc_rand = di.enc_rand.hex() if di.enc_rand else ""
-                    dtu = DTU(ip, timeout=10, is_encrypted=True,
-                              enc_rand=bytes.fromhex(enc_rand))
-                    await asyncio.sleep(2)
-
-            # 2. real_data — detect three_phase and panel count
-            # Use app_info.pv_number as baseline (available even when inverter sleeps)
-            app_info_panels = int(app_info.pv_number or 0)
-            panel_count     = app_info_panels or 2
-            three_phase     = False
-            is_hybrid       = False
-            inverter_sns    = []
-            source          = "app_info"
-
-            # Try real_data up to 2 times — some DTUs respond slowly
-            real_data = None
-            for attempt in range(2):
-                try:
-                    real_data = await asyncio.wait_for(dtu.async_get_real_data_new(), timeout=8)
-                    if real_data:
-                        break
-                except Exception:
-                    if attempt == 0:
-                        await asyncio.sleep(2)
-
-            if real_data:
-                pv_count = len(real_data.pv_data or [])
-                # Use max so a sleeping panel doesn't reduce a known panel count
-                if pv_count:
-                    panel_count = max(app_info_panels, pv_count)
-                three_phase = len(real_data.tgs_data or []) > 0
-                dtu_sn      = str(real_data.device_serial_number or "") or dtu_sn
-                source      = "real_data"
-            else:
-                # Inverter sleeping — try hybrid (gateway) path
-                try:
-                    gw = await asyncio.wait_for(dtu.async_get_gateway_info(), timeout=8)
-                    if gw:
-                        dtu_sn    = str(gw.serial_number or "") or dtu_sn
-                        is_hybrid = True
-                        source    = "gateway"
-                        try:
-                            registry = await asyncio.wait_for(
-                                dtu.async_get_energy_storage_registry(
-                                    dtu_serial_number=int(dtu_sn)
-                                ), timeout=8
-                            )
-                            if registry:
-                                inverter_sns = [
-                                    str(inv.serial_number)
-                                    for inv in (registry.inverters or [])
-                                ]
-                        except Exception:
-                            pass
-                        if not inverter_sns:
-                            # Without inverter serials the device could never be polled.
-                            self.log(f"DTU {ip} — hybrid but inverter registry unavailable")
-                            return None
-                except Exception:
-                    pass
-
-            self.log(
-                f"DTU {ip} — SN:{dtu_sn} panels:{panel_count} 3ph:{three_phase} "
-                f"hybrid:{is_hybrid} enc:{is_encrypted} source:{source}"
-            )
-
-            return {
-                "ip":            ip,
-                "dtu_sn":        dtu_sn,
-                "panel_count":   panel_count,
-                "three_phase":   three_phase,
-                "is_hybrid":     is_hybrid,
-                "inverter_sns":  inverter_sns,
-                "is_encrypted":  is_encrypted,
-                "enc_rand":      enc_rand,
-                "source":        source,
-            }
 
         async def on_list_devices(data: dict = None) -> list:
             nonlocal found_dtus
@@ -370,8 +375,8 @@ class HoymilesDriver(Driver):
                 ips = await _discover_dtus(timeout=1.5)
                 self.log(f"Network scan found: {ips}")
                 if ips:
-                    results = await asyncio.gather(*[_query_dtu(ip) for ip in ips])
-                    found_dtus = [r for r in results if r]
+                    results = await asyncio.gather(*[self._query_dtu(ip) for ip in ips])
+                    found_dtus = [r for r in results if _pairable(r)]
 
             devices = []
             for d in found_dtus:
@@ -438,8 +443,8 @@ class HoymilesDriver(Driver):
             self.log(f"configure_manual — ip: '{ip}' sn_fallback: '{serial}'")
             if not _valid_ip(ip):
                 raise Exception(self.homey.translate("error.invalid_ip", ip=ip))
-            info = await _query_dtu(ip, serial)
-            if not info:
+            info = await self._query_dtu(ip, serial)
+            if not _pairable(info):
                 raise Exception(self.homey.translate("error.cannot_reach", ip=ip))
             found_dtus = [info]
             # The view calls Homey.showView after this emit resolves. Awaiting
@@ -461,73 +466,38 @@ class HoymilesDriver(Driver):
         """
         self.log(f"onRepair started for device {device.get_id()}")
 
-        def _current_ip() -> str:
-            return str(device.get_setting("ip") or "").strip()
-
-        def _current_dtu_sn() -> str:
-            return str(device.get_setting("dtu_sn") or "").strip()
-
         async def on_get_current(data=None) -> dict:
-            ip = _current_ip()
-            dtu_sn = _current_dtu_sn()
-            self.log(f"Repair current — ip:{ip or '<empty>'} dtu_sn:{dtu_sn or '<empty>'}")
-            return {"ip": ip, "dtu_sn": dtu_sn}
+            """IP to edit, and the serial shown read-only. Repair cannot change it."""
+            ip = str(device.get_setting("ip") or "").strip()
+            serial = str(device.get_setting("dtu_sn") or "").strip()
+            self.log(f"Repair current — ip:{ip or '<empty>'} serial:{serial or '<empty>'}")
+            return {"ip": ip, "serial": serial}
 
-        async def on_run_detection(data=None) -> dict:
+        async def on_configure_manual(data: dict = None) -> None:
             data = data or {}
-            ip = str(data.get("ip") or _current_ip()).strip()
-            if not ip:
-                raise Exception("No IP configured — enter an IP address and save first.")
-            parts = ip.split(".")
-            if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
-                raise Exception(f"Invalid IP address: {ip}")
-
-            self.log(f"Repair: querying DTU at {ip}")
-            dtu = DTU(ip, timeout=10)
-            try:
-                app_info = await asyncio.wait_for(dtu.async_app_information_data(), timeout=10)
-            except Exception as e:
-                raise Exception(f"Cannot reach DTU at {ip}: {e}")
-            if not app_info:
-                raise Exception(f"DTU at {ip} did not respond with app info.")
-
-            dtu_sn = str(app_info.dtu_serial_number or "") or _current_dtu_sn()
-            is_encrypted = False
-            enc_rand = ""
-            if app_info.dtu_info and app_info.dtu_info.dfs and _is_encrypted(app_info.dtu_info.dfs):
-                is_encrypted = True
-                enc_rand = app_info.dtu_info.enc_rand.hex() if app_info.dtu_info.enc_rand else ""
-
-            self.log(f"Repair detection: dtu_sn:{dtu_sn} encrypted:{is_encrypted}")
-            return {"dtu_sn": dtu_sn, "is_encrypted": is_encrypted, "enc_rand": enc_rand}
-
-        async def on_save_repair(data: dict) -> bool:
-            current_ip = _current_ip()
-            ip = str(data.get("ip") or current_ip).strip()
-            new_settings: dict = {}
-            if ip and ip != current_ip:
-                parts = ip.split(".")
-                if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
-                    raise Exception(f"Invalid IP address: {ip}")
-                new_settings["ip"] = ip
-            if data.get("dtu_sn"):
-                new_settings["dtu_sn"] = str(data["dtu_sn"])
-            if "is_encrypted" in data:
-                new_settings["is_encrypted"] = bool(data["is_encrypted"])
-            if data.get("enc_rand"):
-                new_settings["enc_rand"] = str(data["enc_rand"])
-            if not new_settings:
-                return True
+            ip = str(data.get("ip") or "").strip()
+            serial = str(device.get_setting("dtu_sn") or "").strip()
+            self.log(f"configure_manual (repair) — ip: '{ip}' serial:{serial or '<empty>'}")
+            if not _valid_ip(ip):
+                raise Exception(self.homey.translate("error.invalid_ip", ip=ip))
+            info = await self._query_dtu(ip, serial)
+            if not info:
+                raise Exception(self.homey.translate("error.cannot_reach", ip=ip))
+            # Only connection fields — never panel_count / three_phase / is_hybrid.
+            new_settings = {
+                "ip":           info["ip"],
+                "dtu_sn":       info["dtu_sn"],
+                "is_encrypted": info["is_encrypted"],
+                "enc_rand":     info["enc_rand"],
+            }
             self.log(f"Repair: applying settings {new_settings}")
             await device.set_settings(new_settings)
             # set_settings() from the app doesn't fire on_settings, so the DTU
             # would keep the old IP/encryption until the 20-min no-data rebuild.
             await device._build_dtu()
-            return True
 
-        session.set_handler("get_current",   on_get_current)
-        session.set_handler("run_detection", on_run_detection)
-        session.set_handler("save_repair",   on_save_repair)
+        session.set_handler("get_current",       on_get_current)
+        session.set_handler("configure_manual",  on_configure_manual)
 
 
 homey_export = HoymilesDriver

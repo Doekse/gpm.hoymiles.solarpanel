@@ -268,7 +268,7 @@ assert "measure_voltage.pv1" not in hid.caps, hid.caps
 print("init default checks OK")
 
 
-# Repair (10-13 log): saving a new IP must rebuild the DTU right away —
+# Repair (10-13 log): configure_manual must rebuild the DTU right away —
 # set_settings() from the app doesn't fire on_settings.
 class Session:
     def __init__(self):
@@ -288,6 +288,9 @@ class RepairDev(R):
         self.built += 1
 
 
+seen_sn = []
+
+
 class Drv(drv.HoymilesDriver):
     def __init__(self):
         pass
@@ -295,12 +298,27 @@ class Drv(drv.HoymilesDriver):
     def log(self, *a):
         pass
 
+    async def _query_dtu(self, ip, manual_sn=""):
+        seen_sn.append(manual_sn)
+        return {"ip": ip, "dtu_sn": "SN1", "is_encrypted": False, "enc_rand": ""}
 
-rd = RepairDev({"ip": "192.168.1.201"}, [])
+
+rd = RepairDev({"ip": "192.168.1.201", "dtu_sn": "OLD", "panel_count": 4}, [])
 sess = Session()
 asyncio.run(Drv().on_repair(sess, rd))
-asyncio.run(sess.handlers["save_repair"]({"ip": "10.10.10.201"}))
-assert rd.s["ip"] == "10.10.10.201" and rd.built == 1, (rd.s, rd.built)
+current = asyncio.run(sess.handlers["get_current"]())
+assert current == {"ip": "192.168.1.201", "serial": "OLD"}, current
+asyncio.run(sess.handlers["configure_manual"]({"ip": "10.10.10.201", "serial": "HACK"}))
+assert seen_sn == ["OLD"], seen_sn  # a submitted serial is ignored
+assert rd.s["ip"] == "10.10.10.201" and rd.s["dtu_sn"] == "SN1" and rd.built == 1, (
+    rd.s,
+    rd.built,
+)
+assert rd.s["panel_count"] == 4  # capability-defining settings untouched
+assert drv._pairable(None) is False
+assert drv._pairable({"is_hybrid": True, "inverter_sns": []}) is False
+assert drv._pairable({"is_hybrid": True, "inverter_sns": ["1"]}) is True
+assert drv._pairable({"is_hybrid": False, "inverter_sns": []}) is True
 print("repair checks OK")
 
 

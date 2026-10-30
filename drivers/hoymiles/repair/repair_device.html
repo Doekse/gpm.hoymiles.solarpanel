@@ -10,28 +10,11 @@
       width: 100%; padding: 8px; box-sizing: border-box;
       font-size: 14px; border: 1px solid #ccc; border-radius: 4px; background: white;
     }
+    input[readonly] { background: #eee; color: #555; }
     .hint  { font-size: 12px; color: #888; margin-top: 5px; }
     .note  { font-size: 12px; color: #b45309; background: #fffbeb;
              border: 1px solid #fcd34d; border-radius: 4px;
              padding: 8px 10px; margin-bottom: 16px; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12px; padding: 4px 10px; border-radius: 12px;
-      margin-bottom: 10px; font-weight: 600;
-    }
-    .badge-ok   { background: #e8f5e9; color: #2e7d32; }
-    .badge-warn { background: #fff3e0; color: #e65100; }
-    .row-detect {
-      display: flex; gap: 8px; margin-bottom: 6px;
-    }
-    .row-detect button {
-      white-space: nowrap; padding: 8px 14px;
-      background: #1565c0; color: white; border: none;
-      border-radius: 4px; font-size: 13px; cursor: pointer;
-      flex-shrink: 0;
-    }
-    .row-detect button:disabled { background: #aaa; cursor: default; }
-    #detect-status { font-size: 12px; color: #555; min-height: 18px; margin-top: 4px; }
     button.primary {
       width: 100%; padding: 10px; margin-top: 8px;
       background: #00B140; color: white; border: none;
@@ -50,16 +33,14 @@
   </div>
 
   <div class="section">
+    <label for="serial" data-i18n="pair.serial_label">DTU Serial Number</label>
+    <input type="text" id="serial" readonly />
+  </div>
+
+  <div class="section">
     <label for="ip" data-i18n="repair.ip_label">DTU IP Address</label>
-    <div class="row-detect">
-      <input type="text" id="ip" placeholder="192.168.1.x" />
-      <button id="detect-btn" onclick="runDetection()">
-        <span data-i18n="repair.detect_button">Re-detect</span>
-      </button>
-    </div>
+    <input type="text" id="ip" placeholder="192.168.1.x" />
     <div class="hint" data-i18n="repair.ip_hint">The local IP of your Hoymiles DTU.</div>
-    <div id="detect-status"></div>
-    <div id="detect-badge"></div>
   </div>
 
   <button class="primary" id="save-btn" onclick="doSave()">
@@ -69,9 +50,6 @@
   <div id="err"></div>
 
   <script>
-    var _current = { ip: '', dtu_sn: '' };
-    var _detected = null;
-
     Homey.ready(function() {
       document.querySelectorAll('[data-i18n]').forEach(function(el) {
         var key = el.getAttribute('data-i18n');
@@ -84,55 +62,23 @@
           document.getElementById('err').textContent = err ? (err.message || String(err)) : 'Failed to load device info.';
           return;
         }
-        _current = { ip: data.ip || '', dtu_sn: data.dtu_sn || '' };
-        document.getElementById('ip').value = _current.ip;
+        document.getElementById('serial').value = data.serial || '';
+        document.getElementById('ip').value = data.ip || '';
       });
     });
-
-    function runDetection() {
-      var btn      = document.getElementById('detect-btn');
-      var statusEl = document.getElementById('detect-status');
-      var badgeEl  = document.getElementById('detect-badge');
-      btn.disabled = true;
-      badgeEl.innerHTML = '';
-      statusEl.textContent = Homey.__('repair.detecting') || 'Running detection…';
-
-      var ip = document.getElementById('ip').value.trim() || _current.ip;
-
-      Homey.emit('run_detection', { ip: ip }, function(err, data) {
-        btn.disabled = false;
-        if (err) {
-          statusEl.textContent = err.message || String(err);
-          return;
-        }
-        statusEl.textContent = '';
-        _detected = data;
-        var badge = document.createElement('div');
-        badge.className = 'badge badge-ok';
-        badge.textContent = '✓ ' + (Homey.__('repair.detected_badge') || 'DTU responded — SN: ') + data.dtu_sn
-          + (data.is_encrypted ? ' (' + (Homey.__('repair.encrypted') || 'encrypted') + ')' : '');
-        badgeEl.appendChild(badge);
-      });
-    }
 
     function doSave() {
       var saveBtn  = document.getElementById('save-btn');
       var statusEl = document.getElementById('save-status');
       var errEl    = document.getElementById('err');
-      var ip       = document.getElementById('ip').value.trim() || _current.ip;
 
       saveBtn.disabled     = true;
       errEl.textContent    = '';
       statusEl.textContent = Homey.__('repair.saving') || 'Saving…';
 
-      var payload = { ip: ip };
-      if (_detected) {
-        payload.dtu_sn = _detected.dtu_sn;
-        payload.is_encrypted = _detected.is_encrypted;
-        payload.enc_rand = _detected.enc_rand;
-      }
-
-      Homey.emit('save_repair', payload, function(err) {
+      Homey.emit('configure_manual', {
+        ip: document.getElementById('ip').value.trim()
+      }, function(err) {
         if (err) {
           saveBtn.disabled     = false;
           statusEl.textContent = '';
