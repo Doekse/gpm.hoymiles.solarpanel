@@ -1,15 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Tilføj via IP…",
     "ip_label": "DTU IP-adresse",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Lad stå tomt for automatisk at scanne netværket.",
     "serial_label": "DTU-serienummer",
     "serial_optional": "(valgfrit)",
     "serial_placeholder": "f.eks. 4141A0068ED2 — lad stå tomt for automatisk registrering",
     "serial_hint": "Registreres automatisk fra DTU'en. Udfyld kun som reservevalg.",
-    "connect_button": "Tilslut",
-    "status_connecting": "Opretter forbindelse til __ip__...",
-    "status_scanning": "Scanner netværket..."
+    "connect_button": "Tilslut"
   },
   "error": {
     "no_dtu_found": "Ingen Hoymiles DTU fundet på netværket. Indtast IP-adressen manuelt.",

@@ -1,19 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Aggiungi tramite IP…",
     "ip_label": "Indirizzo IP del DTU",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Lascia vuoto per scansionare automaticamente la rete.",
-    "login_title": "Hoymiles DTU",
-    "login_subtitle": "Scansiona la tua rete locale per trovare automaticamente i DTU Hoymiles.",
     "serial_label": "Numero di serie DTU",
     "serial_optional": "(opzionale)",
     "serial_placeholder": "es. 4141A0068ED2 — lascia vuoto per il rilevamento automatico",
     "serial_hint": "Rilevato automaticamente dal DTU. Compilare solo come alternativa.",
-    "connect_button": "Connetti",
-    "scan_button": "Scansiona rete",
-    "login_ready": "Tocca \"Scansiona rete\" per cercare i DTU Hoymiles nella tua rete locale.",
-    "status_connecting": "Connessione a __ip__...",
-    "status_scanning": "Scansione della rete..."
+    "connect_button": "Connetti"
   },
   "error": {
     "no_dtu_found": "Nessun DTU Hoymiles trovato in rete. Inserisci l'indirizzo IP manualmente.",
@@ -21,17 +15,5 @@
     "cannot_reach": "Impossibile raggiungere il DTU su __ip__. Controlla IP e rete.",
     "no_dtu_responded": "Nessun DTU Hoymiles ha risposto. Controlla IP e rete.",
     "no_devices": "Nessun dispositivo trovato — torna indietro e riprova."
-  },
-  "repair": {
-    "title": "Ripara connessione DTU",
-    "note": "Numero di pannelli, trifase e ibrido non possono essere modificati qui — serve un nuovo accoppiamento per aggiungere o rimuovere le schede del dispositivo.",
-    "ip_label": "Indirizzo IP del DTU",
-    "ip_hint": "L'IP locale del tuo DTU Hoymiles.",
-    "detect_button": "Rileva di nuovo",
-    "detecting": "Rilevamento in corso…",
-    "detected_badge": "Il DTU ha risposto — SN: ",
-    "encrypted": "crittografato",
-    "save_button": "Salva",
-    "saving": "Salvataggio…"
   }
 }

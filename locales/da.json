@@ -1,19 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Tilføj via IP…",
     "ip_label": "DTU IP-adresse",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Lad stå tomt for automatisk at scanne netværket.",
-    "login_title": "Hoymiles DTU",
-    "login_subtitle": "Scan dit lokale netværk for automatisk at finde Hoymiles-DTU'er.",
     "serial_label": "DTU-serienummer",
     "serial_optional": "(valgfrit)",
     "serial_placeholder": "f.eks. 4141A0068ED2 — lad stå tomt for automatisk registrering",
     "serial_hint": "Registreres automatisk fra DTU'en. Udfyld kun som reservevalg.",
-    "connect_button": "Tilslut",
-    "scan_button": "Scan netværk",
-    "login_ready": "Tryk på \"Scan netværk\" for at søge efter Hoymiles-DTU'er på dit lokale netværk.",
-    "status_connecting": "Opretter forbindelse til __ip__...",
-    "status_scanning": "Scanner netværket..."
+    "connect_button": "Tilslut"
   },
   "error": {
     "no_dtu_found": "Ingen Hoymiles DTU fundet på netværket. Indtast IP-adressen manuelt.",
@@ -21,17 +15,5 @@
     "cannot_reach": "Kan ikke nå DTU på __ip__. Kontroller IP og netværk.",
     "no_dtu_responded": "Ingen Hoymiles DTU svarede. Kontroller IP og netværk.",
     "no_devices": "Ingen enheder fundet — gå tilbage og prøv igen."
-  },
-  "repair": {
-    "title": "Reparer DTU-forbindelse",
-    "note": "Antal paneler, trefaset og hybrid kan ikke ændres her — det kræver ny parring for at tilføje eller fjerne enhedsfliser.",
-    "ip_label": "DTU IP-adresse",
-    "ip_hint": "Den lokale IP-adresse for din Hoymiles DTU.",
-    "detect_button": "Registrér igen",
-    "detecting": "Kører registrering…",
-    "detected_badge": "DTU svarede — SN: ",
-    "encrypted": "krypteret",
-    "save_button": "Gem",
-    "saving": "Gemmer…"
   }
 }

@@ -1,19 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Add by IP…",
     "ip_label": "DTU IP Address",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Leave empty to scan the network automatically.",
-    "login_title": "Hoymiles DTU",
-    "login_subtitle": "Scan your local network to find Hoymiles DTUs automatically.",
     "serial_label": "DTU Serial Number",
     "serial_optional": "(optional)",
     "serial_placeholder": "e.g. 4141A0068ED2 — leave empty to auto-detect",
     "serial_hint": "Detected automatically from the DTU. Only fill in as fallback.",
-    "connect_button": "Connect",
-    "scan_button": "Scan Network",
-    "login_ready": "Tap \"Scan Network\" to search for Hoymiles DTUs on your local network.",
-    "status_connecting": "Connecting to __ip__...",
-    "status_scanning": "Scanning network..."
+    "connect_button": "Connect"
   },
   "error": {
     "no_dtu_found": "No Hoymiles DTU found on network. Enter the IP address manually.",
@@ -21,17 +15,5 @@
     "cannot_reach": "Cannot reach DTU at __ip__. Check IP and network.",
     "no_dtu_responded": "No Hoymiles DTU responded. Check IP and network.",
     "no_devices": "No devices found — please go back and try again."
-  },
-  "repair": {
-    "title": "Repair DTU Connection",
-    "note": "Panel count, three-phase, and hybrid settings cannot be changed here — those require re-pairing to add or remove device tiles.",
-    "ip_label": "DTU IP Address",
-    "ip_hint": "The local IP of your Hoymiles DTU.",
-    "detect_button": "Re-detect",
-    "detecting": "Running detection…",
-    "detected_badge": "DTU responded — SN: ",
-    "encrypted": "encrypted",
-    "save_button": "Save",
-    "saving": "Saving…"
   }
 }

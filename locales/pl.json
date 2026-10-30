@@ -1,19 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Dodaj przez IP…",
     "ip_label": "Adres IP DTU",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Zostaw puste, aby automatycznie skanować sieć.",
-    "login_title": "Hoymiles DTU",
-    "login_subtitle": "Przeskanuj lokalną sieć, aby automatycznie znaleźć DTU Hoymiles.",
     "serial_label": "Numer seryjny DTU",
     "serial_optional": "(opcjonalne)",
     "serial_placeholder": "np. 4141A0068ED2 — zostaw puste dla automatycznego wykrycia",
     "serial_hint": "Wykrywany automatycznie przez DTU. Wypełnij tylko jako zapasowe rozwiązanie.",
-    "connect_button": "Połącz",
-    "scan_button": "Skanuj sieć",
-    "login_ready": "Naciśnij „Skanuj sieć”, aby wyszukać DTU Hoymiles w lokalnej sieci.",
-    "status_connecting": "Łączenie z __ip__...",
-    "status_scanning": "Skanowanie sieci..."
+    "connect_button": "Połącz"
   },
   "error": {
     "no_dtu_found": "Nie znaleziono urządzenia Hoymiles DTU w sieci. Wprowadź adres IP ręcznie.",
@@ -21,17 +15,5 @@
     "cannot_reach": "Nie można połączyć się z DTU pod adresem __ip__. Sprawdź IP i sieć.",
     "no_dtu_responded": "Żadne urządzenie Hoymiles DTU nie odpowiedziało. Sprawdź IP i sieć.",
     "no_devices": "Nie znaleziono urządzeń — wróć i spróbuj ponownie."
-  },
-  "repair": {
-    "title": "Napraw połączenie z DTU",
-    "note": "Liczby paneli, trybu trójfazowego i hybrydowego nie można tu zmienić — wymaga to ponownego parowania, aby dodać lub usunąć kafelki urządzenia.",
-    "ip_label": "Adres IP DTU",
-    "ip_hint": "Lokalny adres IP Twojego DTU Hoymiles.",
-    "detect_button": "Wykryj ponownie",
-    "detecting": "Wykrywanie w toku…",
-    "detected_badge": "DTU odpowiedziało — SN: ",
-    "encrypted": "szyfrowane",
-    "save_button": "Zapisz",
-    "saving": "Zapisywanie…"
   }
 }

@@ -1,15 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Per IP hinzufügen…",
     "ip_label": "DTU-IP-Adresse",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Leer lassen, um das Netzwerk automatisch zu scannen.",
     "serial_label": "DTU-Seriennummer",
     "serial_optional": "(optional)",
     "serial_placeholder": "z.B. 4141A0068ED2 — leer lassen für automatische Erkennung",
     "serial_hint": "Wird automatisch vom DTU erkannt. Nur als Fallback eintragen.",
-    "connect_button": "Verbinden",
-    "status_connecting": "Verbinde mit __ip__...",
-    "status_scanning": "Netzwerk wird gescannt..."
+    "connect_button": "Verbinden"
   },
   "error": {
     "no_dtu_found": "Kein Hoymiles DTU im Netzwerk gefunden. IP-Adresse manuell eingeben.",

@@ -1,0 +1,19 @@
+{
+  "pair": {
+    "add_by_ip": "إضافة عبر IP…",
+    "ip_label": "عنوان IP لـ DTU",
+    "ip_placeholder": "192.168.1.201",
+    "serial_label": "الرقم التسلسلي لـ DTU",
+    "serial_optional": "(اختياري)",
+    "serial_placeholder": "مثل 4141A0068ED2 — اتركه فارغًا للكشف التلقائي",
+    "serial_hint": "يكتشفه الـ DTU عادةً تلقائيًا. أدخله فقط إذا فشل الكشف التلقائي.",
+    "connect_button": "اتصال"
+  },
+  "error": {
+    "no_dtu_found": "تعذّر العثور على Hoymiles DTU في الشبكة. أدخل عنوان IP يدويًا.",
+    "invalid_ip": "عنوان IP غير صالح: __ip__",
+    "cannot_reach": "تعذّر الاتصال بـ DTU على __ip__. تحقق من عنوان IP والشبكة.",
+    "no_dtu_responded": "لم يستجب Hoymiles DTU. تحقق من عنوان IP والشبكة.",
+    "no_devices": "لم يتم العثور على أجهزة — ارجع وحاول مرة أخرى."
+  }
+}

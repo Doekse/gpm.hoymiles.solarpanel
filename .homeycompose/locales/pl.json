@@ -1,15 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Dodaj przez IP…",
     "ip_label": "Adres IP DTU",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Zostaw puste, aby automatycznie skanować sieć.",
     "serial_label": "Numer seryjny DTU",
     "serial_optional": "(opcjonalne)",
     "serial_placeholder": "np. 4141A0068ED2 — zostaw puste dla automatycznego wykrycia",
     "serial_hint": "Wykrywany automatycznie przez DTU. Wypełnij tylko jako zapasowe rozwiązanie.",
-    "connect_button": "Połącz",
-    "status_connecting": "Łączenie z __ip__...",
-    "status_scanning": "Skanowanie sieci..."
+    "connect_button": "Połącz"
   },
   "error": {
     "no_dtu_found": "Nie znaleziono urządzenia Hoymiles DTU w sieci. Wprowadź adres IP ręcznie.",

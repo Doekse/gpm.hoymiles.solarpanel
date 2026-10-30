@@ -1,19 +1,13 @@
 {
   "pair": {
+    "add_by_ip": "Añadir por IP…",
     "ip_label": "Dirección IP del DTU",
     "ip_placeholder": "192.168.1.201",
-    "ip_hint": "Dejar vacío para escanear la red automáticamente.",
-    "login_title": "Hoymiles DTU",
-    "login_subtitle": "Escanea tu red local para encontrar DTUs Hoymiles automáticamente.",
     "serial_label": "Número de serie del DTU",
     "serial_optional": "(opcional)",
     "serial_placeholder": "p.ej. 4141A0068ED2 — dejar vacío para detección automática",
     "serial_hint": "Detectado automáticamente por el DTU. Rellenar solo como alternativa.",
-    "connect_button": "Conectar",
-    "scan_button": "Escanear red",
-    "login_ready": "Pulsa \"Escanear red\" para buscar DTUs Hoymiles en tu red local.",
-    "status_connecting": "Conectando a __ip__...",
-    "status_scanning": "Escaneando la red..."
+    "connect_button": "Conectar"
   },
   "error": {
     "no_dtu_found": "No se encontró ningún DTU Hoymiles en la red. Introduce la dirección IP manualmente.",
@@ -21,17 +15,5 @@
     "cannot_reach": "No se puede alcanzar el DTU en __ip__. Comprueba la IP y la red.",
     "no_dtu_responded": "Ningún DTU Hoymiles respondió. Comprueba la IP y la red.",
     "no_devices": "No se encontraron dispositivos — vuelve atrás e inténtalo de nuevo."
-  },
-  "repair": {
-    "title": "Reparar conexión del DTU",
-    "note": "El número de paneles, trifásico e híbrido no se pueden cambiar aquí — eso requiere volver a emparejar para agregar o quitar tarjetas de dispositivo.",
-    "ip_label": "Dirección IP del DTU",
-    "ip_hint": "La IP local de su DTU Hoymiles.",
-    "detect_button": "Re-detectar",
-    "detecting": "Ejecutando detección…",
-    "detected_badge": "El DTU respondió — SN: ",
-    "encrypted": "cifrado",
-    "save_button": "Guardar",
-    "saving": "Guardando…"
   }
 }
