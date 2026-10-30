@@ -411,6 +411,7 @@ class HoymilesDriver(Driver):
             devices.append({
                 "name":         self.homey.translate("pair.add_by_ip"),
                 "data":         {"id": "manual"},
+                "icon":         "/icon-ip.svg",
                 "capabilities": [],
             })
             return devices
