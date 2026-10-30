@@ -1,12 +1,13 @@
 {
   "pair": {
+    "title": "Introducir dirección IP",
     "add_by_ip": "Añadir por IP…",
     "ip_label": "Dirección IP del DTU",
     "ip_placeholder": "192.168.1.201",
     "serial_label": "Número de serie del DTU",
     "serial_optional": "(opcional)",
-    "serial_placeholder": "p.ej. 4141A0068ED2 — dejar vacío para detección automática",
-    "serial_hint": "Detectado automáticamente por el DTU. Rellenar solo como alternativa.",
+    "serial_placeholder": "p.ej. 4141A0068ED2",
+    "serial_hint": "Rellénalo solo si Homey no puede leer el número de serie de tu DTU.",
     "connect_button": "Conectar"
   },
   "error": {

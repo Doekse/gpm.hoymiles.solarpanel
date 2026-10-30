@@ -1,12 +1,13 @@
 {
   "pair": {
+    "title": "Wprowadź adres IP",
     "add_by_ip": "Dodaj przez IP…",
     "ip_label": "Adres IP DTU",
     "ip_placeholder": "192.168.1.201",
     "serial_label": "Numer seryjny DTU",
     "serial_optional": "(opcjonalne)",
-    "serial_placeholder": "np. 4141A0068ED2 — zostaw puste dla automatycznego wykrycia",
-    "serial_hint": "Wykrywany automatycznie przez DTU. Wypełnij tylko jako zapasowe rozwiązanie.",
+    "serial_placeholder": "np. 4141A0068ED2",
+    "serial_hint": "Wpisz to tylko wtedy, gdy Homey nie może odczytać numeru seryjnego z DTU.",
     "connect_button": "Połącz"
   },
   "error": {

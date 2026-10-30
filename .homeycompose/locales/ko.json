@@ -1,12 +1,13 @@
 {
   "pair": {
+    "title": "IP 주소 입력",
     "add_by_ip": "IP로 추가…",
     "ip_label": "DTU IP 주소",
     "ip_placeholder": "192.168.1.201",
     "serial_label": "DTU 일련번호",
     "serial_optional": "(선택)",
-    "serial_placeholder": "예: 4141A0068ED2 — 비워 두면 자동 감지",
-    "serial_hint": "DTU에서 보통 자동으로 감지돼요. 자동 감지가 안 될 때만 입력하세요.",
+    "serial_placeholder": "예: 4141A0068ED2",
+    "serial_hint": "Homey가 DTU에서 일련번호를 읽지 못할 때만 입력하세요.",
     "connect_button": "연결"
   },
   "error": {

@@ -1,12 +1,13 @@
 {
   "pair": {
+    "title": "IP-adres invoeren",
     "add_by_ip": "Toevoegen via IP…",
     "ip_label": "DTU IP-adres",
     "ip_placeholder": "192.168.1.201",
     "serial_label": "DTU-serienummer",
     "serial_optional": "(optioneel)",
-    "serial_placeholder": "bijv. 4141A0068ED2 — leeg laten voor automatische detectie",
-    "serial_hint": "Automatisch gedetecteerd via de DTU. Alleen invullen als terugvaloptie.",
+    "serial_placeholder": "bijv. 4141A0068ED2",
+    "serial_hint": "Vul dit alleen in als Homey het serienummer niet van je DTU kan lezen.",
     "connect_button": "Verbinden"
   },
   "error": {

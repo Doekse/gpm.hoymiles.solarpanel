@@ -1,12 +1,13 @@
 {
   "pair": {
+    "title": "أدخل عنوان IP",
     "add_by_ip": "إضافة عبر IP…",
     "ip_label": "عنوان IP لـ DTU",
     "ip_placeholder": "192.168.1.201",
     "serial_label": "الرقم التسلسلي لـ DTU",
     "serial_optional": "(اختياري)",
-    "serial_placeholder": "مثل 4141A0068ED2 — اتركه فارغًا للكشف التلقائي",
-    "serial_hint": "يكتشفه الـ DTU عادةً تلقائيًا. أدخله فقط إذا فشل الكشف التلقائي.",
+    "serial_placeholder": "مثل 4141A0068ED2",
+    "serial_hint": "أدخله فقط إذا لم يستطع Homey قراءة الرقم التسلسلي من جهاز DTU.",
     "connect_button": "اتصال"
   },
   "error": {

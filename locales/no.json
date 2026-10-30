@@ -5,9 +5,10 @@
     "ip_placeholder": "192.168.1.201",
     "serial_label": "DTU-serienummer",
     "serial_optional": "(valgfritt)",
-    "serial_placeholder": "f.eks. 4141A0068ED2 — la stå tomt for automatisk gjenkjenning",
-    "serial_hint": "Gjenkjennes automatisk fra DTU-en. Fyll inn kun som reservevalg.",
-    "connect_button": "Koble til"
+    "serial_placeholder": "f.eks. 4141A0068ED2",
+    "serial_hint": "Fyll inn bare hvis Homey ikke kan lese serienummeret fra DTU-en.",
+    "connect_button": "Koble til",
+    "title": "Angi IP-adresse"
   },
   "error": {
     "no_dtu_found": "Ingen Hoymiles DTU funnet på nettverket. Skriv inn IP-adressen manuelt.",

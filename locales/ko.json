@@ -5,9 +5,10 @@
     "ip_placeholder": "192.168.1.201",
     "serial_label": "DTU 일련번호",
     "serial_optional": "(선택)",
-    "serial_placeholder": "예: 4141A0068ED2 — 비워 두면 자동 감지",
-    "serial_hint": "DTU에서 보통 자동으로 감지돼요. 자동 감지가 안 될 때만 입력하세요.",
-    "connect_button": "연결"
+    "serial_placeholder": "예: 4141A0068ED2",
+    "serial_hint": "Homey가 DTU에서 일련번호를 읽지 못할 때만 입력하세요.",
+    "connect_button": "연결",
+    "title": "IP 주소 입력"
   },
   "error": {
     "no_dtu_found": "네트워크에서 Hoymiles DTU를 찾을 수 없어요. IP 주소를 직접 입력하세요.",

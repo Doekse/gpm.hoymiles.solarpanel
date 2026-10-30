@@ -5,9 +5,10 @@
     "ip_placeholder": "192.168.1.201",
     "serial_label": "Numer seryjny DTU",
     "serial_optional": "(opcjonalne)",
-    "serial_placeholder": "np. 4141A0068ED2 — zostaw puste dla automatycznego wykrycia",
-    "serial_hint": "Wykrywany automatycznie przez DTU. Wypełnij tylko jako zapasowe rozwiązanie.",
-    "connect_button": "Połącz"
+    "serial_placeholder": "np. 4141A0068ED2",
+    "serial_hint": "Wpisz to tylko wtedy, gdy Homey nie może odczytać numeru seryjnego z DTU.",
+    "connect_button": "Połącz",
+    "title": "Wprowadź adres IP"
   },
   "error": {
     "no_dtu_found": "Nie znaleziono urządzenia Hoymiles DTU w sieci. Wprowadź adres IP ręcznie.",

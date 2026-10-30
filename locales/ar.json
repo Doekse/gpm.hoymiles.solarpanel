@@ -5,9 +5,10 @@
     "ip_placeholder": "192.168.1.201",
     "serial_label": "الرقم التسلسلي لـ DTU",
     "serial_optional": "(اختياري)",
-    "serial_placeholder": "مثل 4141A0068ED2 — اتركه فارغًا للكشف التلقائي",
-    "serial_hint": "يكتشفه الـ DTU عادةً تلقائيًا. أدخله فقط إذا فشل الكشف التلقائي.",
-    "connect_button": "اتصال"
+    "serial_placeholder": "مثل 4141A0068ED2",
+    "serial_hint": "أدخله فقط إذا لم يستطع Homey قراءة الرقم التسلسلي من جهاز DTU.",
+    "connect_button": "اتصال",
+    "title": "أدخل عنوان IP"
   },
   "error": {
     "no_dtu_found": "تعذّر العثور على Hoymiles DTU في الشبكة. أدخل عنوان IP يدويًا.",

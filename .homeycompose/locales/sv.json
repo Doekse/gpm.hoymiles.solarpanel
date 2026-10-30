@@ -1,12 +1,13 @@
 {
   "pair": {
+    "title": "Ange IP-adress",
     "add_by_ip": "Lägg till via IP…",
     "ip_label": "DTU IP-adress",
     "ip_placeholder": "192.168.1.201",
     "serial_label": "DTU-serienummer",
     "serial_optional": "(valfritt)",
-    "serial_placeholder": "t.ex. 4141A0068ED2 — lämna tomt för automatisk identifiering",
-    "serial_hint": "Identifieras automatiskt från DTU:n. Fyll i endast som reservalternativ.",
+    "serial_placeholder": "t.ex. 4141A0068ED2",
+    "serial_hint": "Fyll i det bara om Homey inte kan läsa serienumret från din DTU.",
     "connect_button": "Anslut"
   },
   "error": {

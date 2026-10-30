@@ -5,9 +5,10 @@
     "ip_placeholder": "192.168.1.201",
     "serial_label": "Серийный номер DTU",
     "serial_optional": "(необязательно)",
-    "serial_placeholder": "напр. 4141A0068ED2 — оставь пустым для автоопределения",
-    "serial_hint": "DTU обычно определяет его сам. Укажи только если автоопределение не сработало.",
-    "connect_button": "Подключить"
+    "serial_placeholder": "напр. 4141A0068ED2",
+    "serial_hint": "Укажи только если Homey не может прочитать серийный номер с DTU.",
+    "connect_button": "Подключить",
+    "title": "Введите IP-адрес"
   },
   "error": {
     "no_dtu_found": "Hoymiles DTU не найден в сети. Введи IP-адрес вручную.",
